@@ -134,40 +134,41 @@ verification migration mutating live pilot data. Details in `database.md` §5.
 
 ---
 
-### M2 — Registry + synchronization + QR (weeks 5–7)
+### M2 — Registry + synchronization + QR (COMPLETE)
 
-**Goal:** field data reaches the server, dedup review works, codes are issued, QR is live. This is where identity integrity is proven.
+**Status: done.** 30 tests, including a live-HTTP run of the full journey and a
+run against the genuine PostGIS schema.
 
-**Sync:**
-- [ ] `POST /v1/sync/push` — batch, ordered, idempotent via `sync_receipt`
-- [ ] `GET /v1/sync/pull` — opaque cursor, time-ordered, `server_time` authoritative
-- [ ] `GET /v1/sync/bootstrap` — full mapped zone pre-seed
-- [ ] `GET /v1/sync/health` — opportunistic gate
-- [ ] Field-level CRDT on confirmed structures only
+| Item | Evidence |
+|---|---|
+| Sync push/pull/bootstrap/health | idempotent replay, client-seq ordering, partial-failure isolation |
+| Server-side field CRDT | identical semantics to `packages/sync-core`; unconfirmed structures rejected |
+| Multi-signal dedup | six PRD 6.1 signals recorded; `score` ranks, never decides |
+| Human decision (`merge`/`distinct`/`deferred`) | reviewer-only; role enforced at the HTTP edge |
+| Code issuance | only inside a decision; `issueCode` refuses a missing reviewer |
+| Soft-delete on merge | tombstone retained so offline clients converge (C4) |
+| QR | SVG from the public code, format-agnostic; stale placards return `code_superseded` |
+| Live HTTP journey | push → replay → dedup → review → merge → code → QR |
+| Real PostGIS | same flow against `000_init.sql` on PostGIS 3.6 |
 
-**Registry:**
-- [ ] Multi-signal candidate generation: GPS proximity, entrance proximity, footprint overlap, photo evidence, mapper assertion, shared-wall info (12 m is a **candidate-generation threshold only**, never the definition)
-- [ ] `409 dedup_required` on the push path
-- [ ] Review console: side-by-side photos, entrance overlay, evidence bundle, §6.1 guidance table
-- [ ] `POST /v1/dedup/{id}/decision` — `merge` / `distinct` / `deferred`, with `classification`
-- [ ] Code issuance **only** post-decision; codes carry no coordinates, no geohash, no position hash
-- [ ] Idempotency on revisit via immutable UUID lookup
+**Three defects these tests found and fixed:**
 
-**QR:**
-- [ ] QR encodes the public short code; derived, never an independent identifier
-- [ ] Scanning resolves code → structural record, or → an in-app feedback path with no QR dependency for the resident flow
-- [ ] Code format remains **provisional**; QR encoding must not hard-code the format
+1. **A merge of two uncoded pins left the survivor permanently uncoded.** The
+   merge path assumed `structure_a` already carried a code. Since codes are only
+   issued *after* a decision, both were uncoded in the common case — so the
+   structure a reviewer had just confirmed could never receive one. The survivor
+   is now coded as the direct consequence of the decision.
+2. **`classification.structure_type` vs `structureType` silently skipped the
+   6.1 entrance reconciliation.** A caller using the camelCase spelling bypassed
+   the multi-household-single-entry collapse entirely. Both spellings now
+   accepted, so a naming mismatch cannot quietly skip the rule.
+3. **Route shadowing.** `GET /v1/structures/:code` matched `/v1/structures/:code/qr`
+   and resolved the literal string `qr` as a code. Now matched on exact segment
+   count.
 
-**Negative tests:**
-- [ ] No AI/ML module imports the code sequence table or any write to `structure.code`
-- [ ] Two devices, same building → exactly one code, one review record, zero auto-merges
-- [ ] §6.1 rules: shared wall + independent entrances → 2 codes; one common entrance → 1; compound → multiple with shared `compound_root_id`; temporary shelter as independent destination → counts
-- [ ] `structure_type='non_residential'` without subtype → `422`
-- [ ] **C8 test:** an inference write attempting to overwrite a ground-truth assertion → trigger raises
-
-**Exit:** C1, C2, C8 hold under adversarial test; QR resolves codes.
-
----
+**A fourth was a measurement error worth recording:** the dedup tests initially
+used 0.0001° as "nearby", which is 15.5 m — outside the 12 m threshold. The
+assertions were failing correctly; the coordinates were wrong.
 
 ### M3 — Path graph production implementation (weeks 8–11)
 

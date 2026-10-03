@@ -47,6 +47,15 @@ else
   printf '%s\n' "$out" | grep -E '✗' | head -12 | sed 's/^/      /'
 fi
 
+# -------------------------------------------------------------- M2 registry
+section "M2 registry, sync, dedup, QR"
+if out=$(cd services/registry-api && node --test test/ 2>&1); then
+  ok "$(printf '%s' "$out" | grep -E '^. (tests|pass) ' | tr '\n' ' ')"
+else
+  bad "registry-api tests failed"
+  printf '%s\n' "$out" | grep -E '✖' | head -10 | sed 's/^/      /'
+fi
+
 # --------------------------------------------------------------- PostGIS layer
 section "M1 spatial layer (PostGIS)"
 if [ -f "$PWD/.pgroot/postgis.conf" ]; then
