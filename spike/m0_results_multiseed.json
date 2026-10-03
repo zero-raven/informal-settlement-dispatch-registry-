@@ -1,0 +1,245 @@
+{
+  "seeds": [
+    7,
+    13,
+    21,
+    34,
+    55,
+    89
+  ],
+  "means": {
+    "nearest_neighbor": {
+      "f1": {
+        "mean": 0.255,
+        "stddev": 0.0191
+      },
+      "recall": {
+        "mean": 0.5761,
+        "stddev": 0.0592
+      },
+      "precision": {
+        "mean": 0.1641,
+        "stddev": 0.0127
+      },
+      "spurious_edge_rate": {
+        "mean": 0.8359,
+        "stddev": 0.0127
+      },
+      "route_error_mean": {
+        "mean": 3.8596,
+        "stddev": 0.945
+      },
+      "routing_success": {
+        "mean": 1.0,
+        "stddev": 0.0
+      },
+      "dest_reach": {
+        "mean": 1.0,
+        "stddev": 0.0
+      },
+      "usable_route_rate": {
+        "mean": 0.0364,
+        "stddev": 0.0457
+      },
+      "spurious_route_rate": {
+        "mean": 0.9636,
+        "stddev": 0.0457
+      },
+      "build_seconds": {
+        "mean": 0.0148,
+        "stddev": 0.0008
+      },
+      "nodes": {
+        "mean": 581.5,
+        "stddev": 0.0
+      },
+      "edges": {
+        "mean": 1902.2,
+        "stddev": 0.0
+      }
+    },
+    "kmeans_delaunay": {
+      "f1": {
+        "mean": 0.5715,
+        "stddev": 0.0138
+      },
+      "recall": {
+        "mean": 0.6525,
+        "stddev": 0.0111
+      },
+      "precision": {
+        "mean": 0.5086,
+        "stddev": 0.0191
+      },
+      "spurious_edge_rate": {
+        "mean": 0.4914,
+        "stddev": 0.0191
+      },
+      "route_error_mean": {
+        "mean": 0.2482,
+        "stddev": 0.0154
+      },
+      "routing_success": {
+        "mean": 0.8177,
+        "stddev": 0.0457
+      },
+      "dest_reach": {
+        "mean": 0.7821,
+        "stddev": 0.0529
+      },
+      "usable_route_rate": {
+        "mean": 0.5195,
+        "stddev": 0.1648
+      },
+      "spurious_route_rate": {
+        "mean": 0.4805,
+        "stddev": 0.1648
+      },
+      "build_seconds": {
+        "mean": 0.0933,
+        "stddev": 0.0079
+      },
+      "nodes": {
+        "mean": 90,
+        "stddev": 0.0
+      },
+      "edges": {
+        "mean": 193.3,
+        "stddev": 0.0
+      }
+    },
+    "dbscan_graph": {
+      "f1": {
+        "mean": 0.1831,
+        "stddev": 0.0884
+      },
+      "recall": {
+        "mean": 0.1696,
+        "stddev": 0.0246
+      },
+      "precision": {
+        "mean": 0.2882,
+        "stddev": 0.156
+      },
+      "spurious_edge_rate": {
+        "mean": 0.7118,
+        "stddev": 0.156
+      },
+      "route_error_mean": {
+        "mean": 0.1852,
+        "stddev": 0.1472
+      },
+      "routing_success": {
+        "mean": 0.625,
+        "stddev": 0.1466
+      },
+      "dest_reach": {
+        "mean": 0.9487,
+        "stddev": 0.0725
+      },
+      "usable_route_rate": {
+        "mean": 0.1477,
+        "stddev": 0.1328
+      },
+      "spurious_route_rate": {
+        "mean": 0.8523,
+        "stddev": 0.1328
+      },
+      "build_seconds": {
+        "mean": 0.0176,
+        "stddev": 0.0006
+      },
+      "nodes": {
+        "mean": 8,
+        "stddev": 0.0
+      },
+      "edges": {
+        "mean": 8.3,
+        "stddev": 0.0
+      }
+    },
+    "spline_mapmatch": {
+      "f1": {
+        "mean": 0.6679,
+        "stddev": 0.0073
+      },
+      "recall": {
+        "mean": 0.8995,
+        "stddev": 0.0112
+      },
+      "precision": {
+        "mean": 0.5312,
+        "stddev": 0.0095
+      },
+      "spurious_edge_rate": {
+        "mean": 0.4688,
+        "stddev": 0.0095
+      },
+      "route_error_mean": {
+        "mean": 0.5307,
+        "stddev": 0.0246
+      },
+      "routing_success": {
+        "mean": 1.0,
+        "stddev": 0.0
+      },
+      "dest_reach": {
+        "mean": 1.0,
+        "stddev": 0.0
+      },
+      "usable_route_rate": {
+        "mean": 0.6875,
+        "stddev": 0.0699
+      },
+      "spurious_route_rate": {
+        "mean": 0.3125,
+        "stddev": 0.0699
+      },
+      "build_seconds": {
+        "mean": 0.0309,
+        "stddev": 0.0085
+      },
+      "nodes": {
+        "mean": 1204,
+        "stddev": 0.0
+      },
+      "edges": {
+        "mean": 3134.5,
+        "stddev": 0.0
+      }
+    }
+  },
+  "gate": [
+    {
+      "algorithm": "kmeans_delaunay",
+      "delta_f1": 0.3165,
+      "delta_dest_reach": -0.2179,
+      "delta_routing_success": -0.1823,
+      "beats_baseline_f1": true,
+      "beats_baseline_dest": false,
+      "no_routing_regression": false,
+      "PASSES_GATE": false
+    },
+    {
+      "algorithm": "dbscan_graph",
+      "delta_f1": -0.0719,
+      "delta_dest_reach": -0.0513,
+      "delta_routing_success": -0.375,
+      "beats_baseline_f1": false,
+      "beats_baseline_dest": false,
+      "no_routing_regression": false,
+      "PASSES_GATE": false
+    },
+    {
+      "algorithm": "spline_mapmatch",
+      "delta_f1": 0.4129,
+      "delta_dest_reach": 0.0,
+      "delta_routing_success": 0.0,
+      "beats_baseline_f1": true,
+      "beats_baseline_dest": false,
+      "no_routing_regression": true,
+      "PASSES_GATE": false
+    }
+  ],
+  "passing": []
+}

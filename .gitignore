@@ -1,0 +1,4 @@
+.venv-spike/
+spike/data/
+spike/__pycache__/
+*.pyc
