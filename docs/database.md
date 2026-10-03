@@ -661,33 +661,76 @@ Default is `aggregate_only` for every structure, and **no service data is served
 
 ## 5. Schema verification status
 
-The DDL in §1 was applied to a live PostgreSQL instance and exercised. Results:
+M1 replaced hand-written DDL with real migrations, and the schema is now
+applied and exercised against a live PostgreSQL instance by
+`scripts/registry-schema-test.sh`. Results:
 
-**Verified (executed, assertions passed):**
+**Verified by execution:**
 
 | Check | Result |
 |---|---|
-| Schema applies cleanly | 25 tables, 11 enums, 1 trigger, 1 view created |
+| Migration applies cleanly | 16 tables, 11 enums, 3 triggers |
 | `inference_only_candidates` | inference row with `state='asserted'` → CHECK violation |
 | `inference_has_no_observer` | inference row carrying `observed_by` → CHECK violation |
 | `ground_truth_needs_observer` | ground-truth row with no observer → CHECK violation |
-| `assertion_current_idx` | second asserted value for same field → UNIQUE violation |
-| `trg_assertion_no_overwrite` | **inference UPDATE onto asserted ground truth → trigger raised `inference cannot overwrite ground truth`** |
-| Ground-truth supersession | human verification sets prior row `superseded` and inserts new asserted row — succeeded |
-| `non_residential_needs_subtype` | `non_residential` without subtype → CHECK violation; with subtype → accepted |
-| `verified_needs_source` | `status='verified'` without source → CHECK violation |
-| Final state after all attempts | ground truth unchanged at its original value; inference still `candidate` |
+| `ground_truth_has_no_confidence` | observation carrying a confidence score → CHECK violation |
+| `trg_assertion_no_overwrite` | **inference UPDATE onto asserted ground truth → `ERROR: inference cannot overwrite ground truth`** |
+| Ground truth after the attempt | unchanged at `{"lat": 12.97}`; the inference row stayed `candidate` |
+| `trg_structure_code_requires_prior_survey` | code on an un-surveyed candidate → refused |
+| same, bypass attempt | `SET code=…, status='surveyed'` in one statement → refused |
+| same, legitimate path | code on an already-surveyed structure → accepted |
+| `structure.code` UNIQUE | duplicate code → refused |
+| `non_residential_needs_subtype` | non-residential without subtype → refused; with subtype → accepted |
+| `dedup_candidate` distinct pair | structure compared with itself → refused |
 
-The C8 invariant is therefore enforced by the database, not merely documented.
+**Identity isolation (`scripts/c3-isolation-test.sh`), all verified by execution:**
 
-**Not verified — requires a real PostGIS instance:**
+| Check | Result |
+|---|---|
+| `registry_api` → `registry_db` | succeeds |
+| `registry_api` → `identity_db` | **`FATAL: permission denied for database "identity_db"`** |
+| `consent_api` → `identity_db` | succeeds |
+| `identity_db` FKs targeting structural tables | none |
+| `structure_link.structure_code` | `text`, never a structural row reference |
+| `PUBLIC` CONNECT on `identity_db` | revoked |
+| `registry_api` grants inside `identity_db` | none |
 
-- `geometry(Polygon, 4326)` / `geometry(Point, 4326)` / `geometry(MultiPolygon, 4326)` typmods
-- All `USING gist` spatial indexes
-- `ST_Contains` zone-containment behaviour in `v_zone_service_stats`
-- `tstzrange` semantics for supply hours
+### Two defects these tests found and fixed
 
-These were validated by inspection only. PostGIS was unavailable in the verification environment, so spatial types were shimmed as text domains and the spatial indexes were excluded from the test harness. **The spatial layer must be exercised against real PostGIS before M1 migration sign-off.** This is recorded as a task in the development plan's M1 exit criteria rather than being quietly treated as done.
+**1. C1 was not actually enforced.** The original design used only a row-state
+CHECK (`code IS NULL OR status IN ('surveyed', …)`). A single
+`UPDATE structure SET code='SLR-C40001', status='surveyed'` satisfies it — an
+automated caller could mint an identity in the same breath that it promoted a
+pin. A row-state check cannot express "the code appeared *after* the survey".
+Replaced with `trg_structure_code_requires_prior_survey`, which reads `OLD.status`
+and refuses the code unless the structure was **already** surveyed before the
+statement ran.
+
+**2. C3 isolation had a real hole.** Every role holds `CONNECT` on every database
+by default via `PUBLIC`. "registry_api has no explicit grant" is therefore *not*
+isolation — it connects anyway. The test failed on its first run, which is the
+only reason it was written. Fixed by `REVOKE ALL ON DATABASE identity_db FROM
+PUBLIC` plus an explicit grant to `consent_api` only. Both scripts now also
+refuse to report a pass when the server is dead, since a dead server makes every
+negative assertion pass vacuously — a false-negative failure mode hit twice
+while building these.
+
+### Still unverified — requires real PostGIS
+
+`migrations/001_postgis_verify.sql` exists precisely to close this gap by
+execution rather than assertion, but **it has not been run**: PostGIS is not
+installed and Docker is unavailable on the authoring machine.
+
+- `geometry(Polygon, 4326)` / `geometry(Point, 4326)` typmods
+- all `USING gist` spatial indexes
+- `ST_Contains` zone containment in `v_zone_service_stats` (C7)
+- `tstzrange` supply-hour semantics
+
+The migration suite here shims `geometry` and `tstzrange` as text domains
+(`scripts/shims/no-postgis.sql`) and strips gist indexes. **This proves DDL
+validity, FK ordering, CHECK constraints and triggers — it proves nothing about
+spatial behaviour.** Applying `001_postgis_verify.sql` against a PostGIS
+instance is an M1 exit requirement.
 
 ---
 

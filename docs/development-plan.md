@@ -106,7 +106,18 @@ Full results and reasoning: `spike/M0_RESULTS.md`. Measured over 6 seeds.
 
 **Exit:** 30 structures captured, classified, and readable/editable offline. No sync required.
 
-- [ ] **Re-run the §1 DDL against a real PostGIS instance** — spatial typmods, all `USING gist` indexes, `ST_Contains` zone containment in `v_zone_service_stats`, and `tstzrange` supply hours were validated without PostGIS and are unverified (see `database.md` §3.7). Migrations must apply cleanly against PostGIS before this milestone closes.
+**M1 STATUS — partially complete.** Landed and verified by execution:
+- [x] Versioned migrations for `registry_db` and `identity_db`
+- [x] `assertion` table + `trg_assertion_no_overwrite` (C8) — verified against a live cluster
+- [x] `sync-core`: field-level CRDT merge, outbox, idempotency ledger, cursor, connectivity gate
+- [x] 16 constraint tests + 3 offline acceptance tests, all passing
+- [x] Airplane-mode test: 30 structures captured offline, app killed, offline edits, single sync, no loss or duplication
+- [x] C3 identity isolation — connection refused, `FATAL: permission denied for database "identity_db"`
+- [x] Two real defects found and fixed (C1 code-minting bypass; C3 PUBLIC CONNECT hole)
+
+Outstanding, and both are environmental:
+- [ ] **BLOCKED — apply `001_postgis_verify.sql` against real PostGIS.** PostGIS is not installed and Docker is unavailable on the authoring machine. Spatial typmods, gist indexes, `ST_Contains` zone containment and `tstzrange` remain unverified. Until this runs, C7 (zone-gated dispatch) is **designed but unproven**, and the schema is tested only against a text-domain shim.
+- [ ] **BLOCKED — Flutter mapper app.** No Flutter SDK available. The offline engine is proven in `packages/sync-core` and against `node:sqlite`, but there is no shipped app. The M1 exit criterion "30 structures captured" is met in test, not in a running application.
 
 ---
 
