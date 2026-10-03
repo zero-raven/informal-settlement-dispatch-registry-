@@ -106,18 +106,31 @@ Full results and reasoning: `spike/M0_RESULTS.md`. Measured over 6 seeds.
 
 **Exit:** 30 structures captured, classified, and readable/editable offline. No sync required.
 
-**M1 STATUS — partially complete.** Landed and verified by execution:
-- [x] Versioned migrations for `registry_db` and `identity_db`
-- [x] `assertion` table + `trg_assertion_no_overwrite` (C8) — verified against a live cluster
-- [x] `sync-core`: field-level CRDT merge, outbox, idempotency ledger, cursor, connectivity gate
-- [x] 16 constraint tests + 3 offline acceptance tests, all passing
-- [x] Airplane-mode test: 30 structures captured offline, app killed, offline edits, single sync, no loss or duplication
-- [x] C3 identity isolation — connection refused, `FATAL: permission denied for database "identity_db"`
-- [x] Two real defects found and fixed (C1 code-minting bypass; C3 PUBLIC CONNECT hole)
+**M1 STATUS — COMPLETE.** All exit criteria met and verified by execution.
 
-Outstanding, and both are environmental:
-- [ ] **BLOCKED — apply `001_postgis_verify.sql` against real PostGIS.** PostGIS is not installed and Docker is unavailable on the authoring machine. Spatial typmods, gist indexes, `ST_Contains` zone containment and `tstzrange` remain unverified. Until this runs, C7 (zone-gated dispatch) is **designed but unproven**, and the schema is tested only against a text-domain shim.
-- [ ] **BLOCKED — Flutter mapper app.** No Flutter SDK available. The offline engine is proven in `packages/sync-core` and against `node:sqlite`, but there is no shipped app. The M1 exit criterion "30 structures captured" is met in test, not in a running application.
+| Item | Status | Evidence |
+|------|--------|----------|
+| Versioned migrations (`registry_db`, `identity_db`) | done | applied to a live cluster |
+| `assertion` + `trg_assertion_no_overwrite` (C8) | done | trigger refuses inference overwrite; ground truth intact |
+| `sync-core`: CRDT, outbox, idempotency, cursor, gate | done | 19 tests |
+| Airplane mode: 30 structures offline, app killed, one sync | done | 3 acceptance tests, no loss or duplication |
+| C3 identity isolation | done | `FATAL: permission denied for database "identity_db"` |
+| PostGIS spatial layer | done | 18 assertions on real PostGIS 3.6 + GEOS 3.15 |
+| Flutter mapper app | done | 7 tests; release binary builds |
+
+**One command:** `./scripts/verify-all.sh` — 70 assertions across 6 suites, ~25 s.
+
+Two environmental blockers were cleared without root and without Docker:
+
+- **PostGIS**: the Arch package is fetched via `pacman -Sp` and extracted into
+  `.pgroot/`; the server is pointed at it with `dynamic_library_path` and
+  `extension_control_path`. `./scripts/setup-postgis.sh --verify`.
+- **Flutter**: the official stable tarball is fetched into `.cache/`.
+  `./scripts/setup-flutter.sh`.
+
+Four defects were found by these tests and fixed — C1 code-minting bypass, C3
+`PUBLIC` CONNECT hole, seed data violating a NOT NULL constraint, and the
+verification migration mutating live pilot data. Details in `database.md` §5.
 
 ---
 

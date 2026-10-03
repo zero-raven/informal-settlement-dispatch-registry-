@@ -715,22 +715,55 @@ refuse to report a pass when the server is dead, since a dead server makes every
 negative assertion pass vacuously — a false-negative failure mode hit twice
 while building these.
 
-### Still unverified — requires real PostGIS
+### Spatial layer — VERIFIED against real PostGIS
 
-`migrations/001_postgis_verify.sql` exists precisely to close this gap by
-execution rather than assertion, but **it has not been run**: PostGIS is not
-installed and Docker is unavailable on the authoring machine.
+**This blocker is CLOSED.** PostGIS 3.6 (USE_GEOS=1, GEOS 3.15.0) is installed
+unprivileged via `scripts/setup-postgis.sh` — no root, no Docker — and
+`scripts/postgis-verify.sh` exercises the schema against it. Every number below
+is from an actual run.
 
-- `geometry(Polygon, 4326)` / `geometry(Point, 4326)` typmods
-- all `USING gist` spatial indexes
-- `ST_Contains` zone containment in `v_zone_service_stats` (C7)
-- `tstzrange` supply-hour semantics
+| Check | Result |
+|---|---|
+| `CREATE EXTENSION postgis` | succeeds |
+| `postgis_version()` | `3.6 USE_GEOS=1 USE_PROJ=1 USE_STATS=1` |
+| `postgis_geos_version()` | `3.15.0-CAPI-1.21.0` |
+| `000_init.sql` with **no shim, no typmod stripping** | applies cleanly, 17 tables |
+| geometry columns that are real PostGIS `geometry` | 9 of 9 |
+| `USING gist` spatial indexes | 8 |
+| `structure_service.supply_hours` | real `tstzrange` (not a text stand-in) |
+| `001_postgis_verify.sql` | passed, 3 assertions |
+| C7 interior point contained by zone boundary | true |
+| C7 exterior point contained | **false — dispatch correctly blocked** |
+| C8 inference overwrite ground truth | refused; ground truth intact |
+| `v_zone_service_stats` per-structure column | none |
+| aggregate view executes on real PostGIS | yes |
+| stored polygon measured by `ST_Area` | 0.00010000 deg² |
+| `ST_Intersects` against a stored footprint | true |
 
-The migration suite here shims `geometry` and `tstzrange` as text domains
-(`scripts/shims/no-postgis.sql`) and strips gist indexes. **This proves DDL
-validity, FK ordering, CHECK constraints and triggers — it proves nothing about
-spatial behaviour.** Applying `001_postgis_verify.sql` against a PostGIS
-instance is an M1 exit requirement.
+**How the unprivileged install works.** Arch's `postgis` package is downloaded
+with `pacman -Sp` (which needs no root) and extracted into `.pgroot/`. Two
+supported server settings point at it:
+
+- `dynamic_library_path` — finds `postgis-3.so`
+- `extension_control_path` — finds `postgis.control` and the versioned SQL
+
+One subtlety cost several attempts and is worth recording: `extension_control_path`
+must name the **parent** of the `extension` directory, not the directory itself.
+Pointing it at `.../extension` makes *every* extension undiscoverable, including
+`pgcrypto` — which looks identical to "PostGIS failed to install" and sent me
+down the wrong path twice.
+
+### Defects the spatial verification found
+
+**3. Seed data violated a NOT NULL constraint.** `zone.boundary` is NOT NULL
+because C7 enforces dispatch containment against it, but the seed `INSERT`
+omitted it. The migration aborted partway, leaving `zone` empty and silently
+skipping later statements under `ON_ERROR_STOP`. Seed rows now supply a real
+polygon.
+
+**4. The verification migration mutated live pilot data.** It overwrote zone
+`C4`'s boundary to test containment, which would destroy the seeded pilot
+geometry and is not safe to re-run. It now creates and drops a scratch zone.
 
 ---
 

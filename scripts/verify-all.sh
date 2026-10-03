@@ -47,6 +47,33 @@ else
   printf '%s\n' "$out" | grep -E '✗' | head -12 | sed 's/^/      /'
 fi
 
+# --------------------------------------------------------------- PostGIS layer
+section "M1 spatial layer (PostGIS)"
+if [ -f "$PWD/.pgroot/postgis.conf" ]; then
+  if out=$(./scripts/postgis-verify.sh 2>&1); then
+    ok "$(printf '%s' "$out" | sed 's/\x1b\[[0-9;]*m//g' | grep -c '✓' | xargs -I{} echo '{} spatial assertions on real PostGIS')"
+  else
+    bad "PostGIS verification failed"
+    printf '%s\n' "$out" | grep '✗' | head -10 | sed 's/^/      /'
+  fi
+else
+  printf '  %s—%s PostGIS absent; run: ./scripts/setup-postgis.sh\n' "$DIM" "$RST"
+fi
+
+# ----------------------------------------------------------------- mapper app
+section "M1 mapper app (offline capture)"
+if [ -d .cache/flutter ]; then
+  export PATH="$PWD/.cache/flutter/bin:$PATH"
+  if out=$(cd apps/mapper && timeout 300 flutter test --reporter compact 2>&1); then
+    ok "$(printf '%s' "$out" | tr '\r' '\n' | grep -oE '\+[0-9]+(: All tests passed!)?' | tail -1 | sed 's/^/tests /')"
+  else
+    bad "mapper app tests failed"
+    printf '%s\n' "$out" | tail -12 | sed 's/^/      /'
+  fi
+else
+  printf '  %s—%s Flutter SDK absent; run: ./scripts/setup-flutter.sh\n' "$DIM" "$RST"
+fi
+
 # ------------------------------------------------------------------- M0 spike
 section "M0 path-graph spike regression"
 if [ -x .venv-spike/bin/python ]; then

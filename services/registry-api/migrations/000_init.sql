@@ -491,6 +491,14 @@ CREATE TRIGGER trg_service_touch BEFORE UPDATE ON structure_service
 -- Seed the pilot zone. Dispatch disabled until explicitly enabled (PRD 3).
 -- ---------------------------------------------------------------------------
 
-INSERT INTO zone (code, name, dispatch_enabled) VALUES
-  ('C4', 'Pilot campus zone C4', false),
-  ('C9', 'Pilot campus zone C9 (dispatch disabled)', false);
+-- Pilot zones. boundary is NOT NULL because C7 enforces dispatch containment
+-- against it, so the seed must provide a real polygon rather than NULL.
+INSERT INTO zone (code, name, dispatch_enabled, boundary) VALUES
+  ('C4', 'Pilot campus zone C4', false,
+   ST_Multi(ST_GeomFromText(
+     'POLYGON((-77.600 -12.970, 77.600 -12.970, 77.600 12.990, -77.600 12.990, -77.600 -12.970))',
+     4326))),
+  ('C9', 'Pilot campus zone C9 (dispatch disabled)', false,
+   ST_Multi(ST_GeomFromText(
+     'POLYGON((77.610 -12.970, 77.700 -12.970, 77.700 -12.900, 77.610 -12.900, 77.610 -12.970))',
+     4326)));

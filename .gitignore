@@ -1,4 +1,8 @@
 .venv-spike/
+.cache/
+.pgroot/
 spike/data/
 spike/__pycache__/
+apps/mapper/build/
+apps/mapper/.dart_tool/
 *.pyc

@@ -17,15 +17,14 @@ DECLARE
   ok_range   boolean;
   ok_tz      boolean;
 BEGIN
-  -- 1. spatial typmods on geometry columns
-  SELECT count(*) = 4 INTO ok_typmod
+  -- 1. every geometry column in the schema is real PostGIS geometry.
+  -- Counted from the catalogue rather than a hand-listed subset, so a future
+  -- spatial column cannot be added without this check noticing.
+  -- A text-domain stand-in would report type `text`, not `geometry`, so this
+  -- also proves the no-PostGIS shim is not in play.
+  SELECT count(*) = 9 INTO ok_typmod
   FROM information_schema.columns
   WHERE table_schema = 'public'
-    AND (
-      (table_name = 'structure'      AND column_name IN
-        ('footprint','centroid','access_point','entrance_geom'))
-      OR (table_name = 'grievance'   AND column_name = 'reported_geometry')
-    )
     AND udt_name = 'geometry';
 
   -- 2. gist indexes actually present
@@ -38,9 +37,15 @@ BEGIN
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE p.proname = 'st_contains' AND n.nspname = 'public';
 
-  -- 4. tstzrange (service supply hours) is the real range type
+  -- 4. supply_hours is genuinely a tstzrange (not a text-domain stand-in)
   SELECT EXISTS (
-    SELECT 1 FROM pg_type WHERE typname = 'tstzrange'
+    SELECT 1
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_type t ON t.oid = a.atttypid
+    WHERE c.relname = 'structure_service'
+      AND a.attname = 'supply_hours'
+      AND t.typname = 'tstzrange'
   ) INTO ok_range;
 
   -- 5. timezone-bearing range construction works as the schema assumes
@@ -66,38 +71,33 @@ END $$;
 -- Close the loop on the spatial semantics the design depends on:
 -- zone containment must be exact enough that a structure outside the pilot
 -- mapped zone is NOT contained (C7, PRD 3).
+--
+-- Uses a scratch zone rather than mutating C4, so the seeded pilot geometry is
+-- left intact and this migration stays safe to re-run.
 DO $$
 DECLARE
-  z_id bigint;
+  z_id  bigint;
   inside  geometry(Point, 4326);
   outside geometry(Point, 4326);
 BEGIN
-  SELECT id INTO z_id FROM zone WHERE code = 'C4';
-  IF z_id IS NULL THEN
-    RAISE EXCEPTION 'seed zone C4 missing';
-  END IF;
+  INSERT INTO zone (code, name, dispatch_enabled, boundary)
+  VALUES ('__verify_scratch__', 'temporary zone for spatial verification', false,
+          ST_Multi(ST_GeomFromText(
+            'POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))', 4326)))
+  ON CONFLICT (code) DO UPDATE SET boundary = EXCLUDED.boundary
+  RETURNING id INTO z_id;
 
-  -- a small polygon around the campus origin
-  UPDATE zone
-  SET boundary = ST_Multi(ST_MakePolygon(ST_MakeLine(ARRAY[
-        ST_MakePoint(-100.0, -100.0),
-        ST_MakePoint( 200.0, -100.0),
-        ST_MakePoint( 200.0,  260.0),
-        ST_MakePoint(-100.0,  260.0),
-        ST_MakePoint(-100.0, -100.0)
-      ])))
-  WHERE id = z_id;
-
-  inside  := ST_SetSRID(ST_MakePoint(50.0, 100.0), 4326);
-  outside := ST_SetSRID(ST_MakePoint(999.0, 999.0), 4326);
+  inside  := ST_SetSRID(ST_MakePoint(50, 50), 4326);
+  outside := ST_SetSRID(ST_MakePoint(500, 500), 4326);
 
   IF NOT ST_Contains((SELECT boundary FROM zone WHERE id = z_id), inside) THEN
     RAISE EXCEPTION 'zone containment failed: interior point not contained';
   END IF;
   IF ST_Contains((SELECT boundary FROM zone WHERE id = z_id), outside) THEN
-    RAISE EXCEPTION 'zone containment failed: exterior point contained — C7 broken';
+    RAISE EXCEPTION 'zone containment failed: exterior point contained - C7 broken';
   END IF;
 
+  DELETE FROM zone WHERE id = z_id;
   RAISE NOTICE 'POSTGIS VERIFICATION PASSED: zone containment behaves as C7 requires';
 END $$;
 
