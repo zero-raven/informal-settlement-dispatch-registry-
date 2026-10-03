@@ -332,8 +332,19 @@ class Trace:
 
 
 def generate_dataset(
-    n_mappers: int = 4, walks_per_mapper: int = 8, seed: int = 7
+    n_mappers: int = 4,
+    walks_per_mapper: int = 8,
+    seed: int = 7,
+    sigma_range: tuple[float, float] | None = None,
+    drift_range: tuple[float, float] | None = None,
+    dropout: float | None = None,
 ) -> tuple[GroundTruth, list[Trace]]:
+    """Generate traces. `sigma_range` overrides the default per-mapper GPS
+    quality spread so a sweep can hold noise constant or vary it deliberately.
+
+    `sigma_range=(s, s)` gives every mapper identical noise (isolates sigma);
+    `sigma_range=(lo, hi)` spreads quality across mappers (the M0 default).
+    """
     rng = random.Random(seed)
     gt = build_ground_truth()
 
@@ -351,9 +362,20 @@ def generate_dataset(
             poly = densify(poly, step=2.0)
             true_poly = list(poly)
             # per-mapper GPS quality differs
-            sigma = [2.0, 3.5, 5.0, 7.0][m % 4]
-            drift = [0.0, 0.8, 1.6, 2.4][m % 4]
-            noisy = add_gps_noise(poly, rng, sigma, drift, 0.03, 0.02)
+            if sigma_range is None:
+                sigma = [2.0, 3.5, 5.0, 7.0][m % 4]
+            else:
+                lo, hi = sigma_range
+                frac = (m / max(1, n_mappers - 1)) if hi > lo else 0.0
+                sigma = lo + (hi - lo) * frac
+            if drift_range is None:
+                drift = [0.0, 0.8, 1.6, 2.4][m % 4]
+            else:
+                lo, hi = drift_range
+                frac = (m / max(1, n_mappers - 1)) if hi > lo else 0.0
+                drift = lo + (hi - lo) * frac
+            drop = 0.03 if dropout is None else dropout
+            noisy = add_gps_noise(poly, rng, sigma, drift, drop, 0.02)
             traces.append(
                 Trace(
                     trace_id=f"t_{m}_{w}",

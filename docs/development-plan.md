@@ -76,6 +76,8 @@ Full results and reasoning: `spike/M0_RESULTS.md`. Measured over 6 seeds.
 2. **The gate was mis-specified and has been corrected.** Destination reach is not a discriminator — the naive baseline reaches 100% of destinations while 96% of its routes traverse non-path geometry. `usable_route_rate` (routes predominantly on real geometry) is the discriminating metric and is now the gate.
 3. **PRD §6.2's rejection of seed-and-spline is contradicted.** It was excluded for lacking spurious-path suppression; measured spurious-route rate is 0.313, the lowest of all four. §6.2 conflated edge *count* with *spuriousness*.
 
+**Corrected gate result.** Re-scored on `usable_route_rate`, k-means+Delaunay **passes** (+0.483 over baseline, no routing regression). It is still not adopted: it regresses destination reachability by 0.218, and for an emergency dispatch product a structure a responder cannot be routed to at all is a worse failure than a circuitous route. Its 7-component fragmentation compounds that.
+
 **Revised approach for M3 — hybrid, not any single candidate:** map-matching backbone (best measured F1 / usable-route / reach) + Delaunay restricted to gap-bridging (proximity-tested, length-capped) + adaptive density-based seeding + an explicit measured spurious-suppression stage.
 
 **Deliverables complete.** No production code left this milestone — `spike/` is a decision instrument, retained as the regression harness for M3.

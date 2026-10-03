@@ -1,0 +1,569 @@
+{
+  "seeds": [
+    7,
+    13,
+    21
+  ],
+  "sigmas": {
+    "1": {
+      "nearest_neighbor": {
+        "f1": 0.2855,
+        "usable_route_rate": 0.0319,
+        "dest_reach": 1.0,
+        "precision": 0.2072,
+        "spurious_route_rate": 0.9681,
+        "edges": 936.6667,
+        "routing_success": 0.9792,
+        "build_seconds": 0.0262
+      },
+      "kmeans_delaunay": {
+        "f1": 0.6137,
+        "usable_route_rate": 0.6667,
+        "dest_reach": 1.0,
+        "precision": 0.5185,
+        "spurious_route_rate": 0.3333,
+        "edges": 196.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.1622
+      },
+      "dbscan_graph": {
+        "f1": 0.0,
+        "usable_route_rate": 0.0,
+        "dest_reach": 1.0,
+        "precision": 0.0,
+        "spurious_route_rate": 1.0,
+        "edges": 0.6667,
+        "routing_success": 0.2083,
+        "build_seconds": 0.0218
+      },
+      "spline_mapmatch": {
+        "f1": 0.699,
+        "usable_route_rate": 0.6979,
+        "dest_reach": 1.0,
+        "precision": 0.636,
+        "spurious_route_rate": 0.3021,
+        "edges": 1457.3333,
+        "routing_success": 1.0,
+        "build_seconds": 0.023
+      }
+    },
+    "2": {
+      "nearest_neighbor": {
+        "f1": 0.282,
+        "usable_route_rate": 0.0521,
+        "dest_reach": 1.0,
+        "precision": 0.1979,
+        "spurious_route_rate": 0.9479,
+        "edges": 1458.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.02
+      },
+      "kmeans_delaunay": {
+        "f1": 0.6278,
+        "usable_route_rate": 0.6145,
+        "dest_reach": 1.0,
+        "precision": 0.5458,
+        "spurious_route_rate": 0.3855,
+        "edges": 196.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.1007
+      },
+      "dbscan_graph": {
+        "f1": 0.1187,
+        "usable_route_rate": 0.0175,
+        "dest_reach": 1.0,
+        "precision": 0.2222,
+        "spurious_route_rate": 0.9825,
+        "edges": 3.3333,
+        "routing_success": 0.5208,
+        "build_seconds": 0.0236
+      },
+      "spline_mapmatch": {
+        "f1": 0.7076,
+        "usable_route_rate": 0.7396,
+        "dest_reach": 1.0,
+        "precision": 0.6238,
+        "spurious_route_rate": 0.2604,
+        "edges": 2270.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0249
+      }
+    },
+    "4": {
+      "nearest_neighbor": {
+        "f1": 0.268,
+        "usable_route_rate": 0.1041,
+        "dest_reach": 1.0,
+        "precision": 0.1725,
+        "spurious_route_rate": 0.8959,
+        "edges": 1954.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.0186
+      },
+      "kmeans_delaunay": {
+        "f1": 0.5954,
+        "usable_route_rate": 0.3759,
+        "dest_reach": 0.6923,
+        "precision": 0.5523,
+        "spurious_route_rate": 0.6241,
+        "edges": 194.3333,
+        "routing_success": 0.75,
+        "build_seconds": 0.1068
+      },
+      "dbscan_graph": {
+        "f1": 0.1494,
+        "usable_route_rate": 0.1303,
+        "dest_reach": 1.0,
+        "precision": 0.2222,
+        "spurious_route_rate": 0.8697,
+        "edges": 7.0,
+        "routing_success": 0.6146,
+        "build_seconds": 0.0214
+      },
+      "spline_mapmatch": {
+        "f1": 0.6755,
+        "usable_route_rate": 0.7118,
+        "dest_reach": 0.9744,
+        "precision": 0.5519,
+        "spurious_route_rate": 0.2882,
+        "edges": 3170.6667,
+        "routing_success": 0.9792,
+        "build_seconds": 0.0315
+      }
+    },
+    "6": {
+      "nearest_neighbor": {
+        "f1": 0.2826,
+        "usable_route_rate": 0.0417,
+        "dest_reach": 1.0,
+        "precision": 0.1869,
+        "spurious_route_rate": 0.9583,
+        "edges": 2083.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.0186
+      },
+      "kmeans_delaunay": {
+        "f1": 0.5402,
+        "usable_route_rate": 0.4343,
+        "dest_reach": 0.7949,
+        "precision": 0.4682,
+        "spurious_route_rate": 0.5657,
+        "edges": 193.0,
+        "routing_success": 0.8229,
+        "build_seconds": 0.1097
+      },
+      "dbscan_graph": {
+        "f1": 0.2473,
+        "usable_route_rate": 0.3036,
+        "dest_reach": 1.0,
+        "precision": 0.4783,
+        "spurious_route_rate": 0.6964,
+        "edges": 8.0,
+        "routing_success": 0.7292,
+        "build_seconds": 0.019
+      },
+      "spline_mapmatch": {
+        "f1": 0.6283,
+        "usable_route_rate": 0.5833,
+        "dest_reach": 1.0,
+        "precision": 0.4796,
+        "spurious_route_rate": 0.4167,
+        "edges": 3490.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.036
+      }
+    },
+    "8": {
+      "nearest_neighbor": {
+        "f1": 0.3144,
+        "usable_route_rate": 0.0729,
+        "dest_reach": 1.0,
+        "precision": 0.2045,
+        "spurious_route_rate": 0.9271,
+        "edges": 2049.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0177
+      },
+      "kmeans_delaunay": {
+        "f1": 0.4514,
+        "usable_route_rate": 0.1923,
+        "dest_reach": 0.7692,
+        "precision": 0.3726,
+        "spurious_route_rate": 0.8077,
+        "edges": 195.0,
+        "routing_success": 0.8125,
+        "build_seconds": 0.1104
+      },
+      "dbscan_graph": {
+        "f1": 0.282,
+        "usable_route_rate": 0.3517,
+        "dest_reach": 1.0,
+        "precision": 0.3581,
+        "spurious_route_rate": 0.6483,
+        "edges": 19.3333,
+        "routing_success": 0.9166,
+        "build_seconds": 0.0216
+      },
+      "spline_mapmatch": {
+        "f1": 0.5828,
+        "usable_route_rate": 0.3924,
+        "dest_reach": 1.0,
+        "precision": 0.4222,
+        "spurious_route_rate": 0.6076,
+        "edges": 3609.3333,
+        "routing_success": 0.9167,
+        "build_seconds": 0.0381
+      }
+    },
+    "10": {
+      "nearest_neighbor": {
+        "f1": 0.2814,
+        "usable_route_rate": 0.0833,
+        "dest_reach": 1.0,
+        "precision": 0.174,
+        "spurious_route_rate": 0.9167,
+        "edges": 1976.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0164
+      },
+      "kmeans_delaunay": {
+        "f1": 0.4189,
+        "usable_route_rate": 0.2535,
+        "dest_reach": 0.7949,
+        "precision": 0.3304,
+        "spurious_route_rate": 0.7465,
+        "edges": 192.6667,
+        "routing_success": 0.8229,
+        "build_seconds": 0.107
+      },
+      "dbscan_graph": {
+        "f1": 0.267,
+        "usable_route_rate": 0.2023,
+        "dest_reach": 1.0,
+        "precision": 0.2385,
+        "spurious_route_rate": 0.7977,
+        "edges": 34.0,
+        "routing_success": 0.9271,
+        "build_seconds": 0.0209
+      },
+      "spline_mapmatch": {
+        "f1": 0.5461,
+        "usable_route_rate": 0.3646,
+        "dest_reach": 1.0,
+        "precision": 0.3817,
+        "spurious_route_rate": 0.6354,
+        "edges": 3663.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0461
+      }
+    },
+    "12": {
+      "nearest_neighbor": {
+        "f1": 0.3031,
+        "usable_route_rate": 0.1146,
+        "dest_reach": 1.0,
+        "precision": 0.1882,
+        "spurious_route_rate": 0.8854,
+        "edges": 1868.3333,
+        "routing_success": 1.0,
+        "build_seconds": 0.0307
+      },
+      "kmeans_delaunay": {
+        "f1": 0.3994,
+        "usable_route_rate": 0.203,
+        "dest_reach": 0.8462,
+        "precision": 0.3027,
+        "spurious_route_rate": 0.797,
+        "edges": 195.0,
+        "routing_success": 0.875,
+        "build_seconds": 0.1614
+      },
+      "dbscan_graph": {
+        "f1": 0.3285,
+        "usable_route_rate": 0.1746,
+        "dest_reach": 1.0,
+        "precision": 0.279,
+        "spurious_route_rate": 0.8254,
+        "edges": 51.0,
+        "routing_success": 0.9375,
+        "build_seconds": 0.0262
+      },
+      "spline_mapmatch": {
+        "f1": 0.5117,
+        "usable_route_rate": 0.2604,
+        "dest_reach": 1.0,
+        "precision": 0.346,
+        "spurious_route_rate": 0.7396,
+        "edges": 3687.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0546
+      }
+    }
+  },
+  "drifts": {
+    "0.0": {
+      "nearest_neighbor": {
+        "f1": 0.2467,
+        "usable_route_rate": 0.0521,
+        "dest_reach": 1.0,
+        "precision": 0.1621,
+        "spurious_route_rate": 0.9479,
+        "edges": 1807.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0225
+      },
+      "kmeans_delaunay": {
+        "f1": 0.5974,
+        "usable_route_rate": 0.6713,
+        "dest_reach": 0.8205,
+        "precision": 0.5531,
+        "spurious_route_rate": 0.3287,
+        "edges": 194.6667,
+        "routing_success": 0.8542,
+        "build_seconds": 0.125
+      },
+      "dbscan_graph": {
+        "f1": 0.186,
+        "usable_route_rate": 0.1333,
+        "dest_reach": 1.0,
+        "precision": 0.3055,
+        "spurious_route_rate": 0.8667,
+        "edges": 5.6667,
+        "routing_success": 0.625,
+        "build_seconds": 0.0249
+      },
+      "spline_mapmatch": {
+        "f1": 0.6952,
+        "usable_route_rate": 0.6666,
+        "dest_reach": 1.0,
+        "precision": 0.5901,
+        "spurious_route_rate": 0.3334,
+        "edges": 2821.3333,
+        "routing_success": 1.0,
+        "build_seconds": 0.0326
+      }
+    },
+    "1.0": {
+      "nearest_neighbor": {
+        "f1": 0.2356,
+        "usable_route_rate": 0.0427,
+        "dest_reach": 1.0,
+        "precision": 0.1504,
+        "spurious_route_rate": 0.9573,
+        "edges": 1797.3333,
+        "routing_success": 0.9896,
+        "build_seconds": 0.0222
+      },
+      "kmeans_delaunay": {
+        "f1": 0.6136,
+        "usable_route_rate": 0.576,
+        "dest_reach": 0.8205,
+        "precision": 0.5734,
+        "spurious_route_rate": 0.424,
+        "edges": 195.3333,
+        "routing_success": 0.8542,
+        "build_seconds": 0.142
+      },
+      "dbscan_graph": {
+        "f1": 0.1668,
+        "usable_route_rate": 0.0292,
+        "dest_reach": 1.0,
+        "precision": 0.2592,
+        "spurious_route_rate": 0.9708,
+        "edges": 6.0,
+        "routing_success": 0.6979,
+        "build_seconds": 0.0245
+      },
+      "spline_mapmatch": {
+        "f1": 0.7001,
+        "usable_route_rate": 0.7188,
+        "dest_reach": 1.0,
+        "precision": 0.5916,
+        "spurious_route_rate": 0.2812,
+        "edges": 2815.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0388
+      }
+    },
+    "2.5": {
+      "nearest_neighbor": {
+        "f1": 0.2381,
+        "usable_route_rate": 0.0521,
+        "dest_reach": 1.0,
+        "precision": 0.1504,
+        "spurious_route_rate": 0.9479,
+        "edges": 1811.3333,
+        "routing_success": 1.0,
+        "build_seconds": 0.0233
+      },
+      "kmeans_delaunay": {
+        "f1": 0.6208,
+        "usable_route_rate": 0.598,
+        "dest_reach": 0.8205,
+        "precision": 0.5789,
+        "spurious_route_rate": 0.402,
+        "edges": 194.6667,
+        "routing_success": 0.8542,
+        "build_seconds": 0.1377
+      },
+      "dbscan_graph": {
+        "f1": 0.1911,
+        "usable_route_rate": 0.0436,
+        "dest_reach": 1.0,
+        "precision": 0.325,
+        "spurious_route_rate": 0.9564,
+        "edges": 6.6667,
+        "routing_success": 0.6875,
+        "build_seconds": 0.0282
+      },
+      "spline_mapmatch": {
+        "f1": 0.6817,
+        "usable_route_rate": 0.6667,
+        "dest_reach": 1.0,
+        "precision": 0.5663,
+        "spurious_route_rate": 0.3333,
+        "edges": 2846.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.0362
+      }
+    }
+  },
+  "dropouts": {
+    "0.0": {
+      "nearest_neighbor": {
+        "f1": 0.243,
+        "usable_route_rate": 0.0323,
+        "dest_reach": 1.0,
+        "precision": 0.1546,
+        "spurious_route_rate": 0.9677,
+        "edges": 1854.3333,
+        "routing_success": 0.9792,
+        "build_seconds": 0.0231
+      },
+      "kmeans_delaunay": {
+        "f1": 0.6275,
+        "usable_route_rate": 0.5587,
+        "dest_reach": 0.8718,
+        "precision": 0.5614,
+        "spurious_route_rate": 0.4413,
+        "edges": 195.3333,
+        "routing_success": 0.8958,
+        "build_seconds": 0.1305
+      },
+      "dbscan_graph": {
+        "f1": 0.167,
+        "usable_route_rate": 0.0145,
+        "dest_reach": 1.0,
+        "precision": 0.4667,
+        "spurious_route_rate": 0.9855,
+        "edges": 4.3333,
+        "routing_success": 0.5209,
+        "build_seconds": 0.0328
+      },
+      "spline_mapmatch": {
+        "f1": 0.7022,
+        "usable_route_rate": 0.7292,
+        "dest_reach": 1.0,
+        "precision": 0.597,
+        "spurious_route_rate": 0.2708,
+        "edges": 2887.0,
+        "routing_success": 1.0,
+        "build_seconds": 0.0373
+      }
+    },
+    "0.05": {
+      "nearest_neighbor": {
+        "f1": 0.2574,
+        "usable_route_rate": 0.0625,
+        "dest_reach": 1.0,
+        "precision": 0.1664,
+        "spurious_route_rate": 0.9375,
+        "edges": 1779.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0293
+      },
+      "kmeans_delaunay": {
+        "f1": 0.6099,
+        "usable_route_rate": 0.6072,
+        "dest_reach": 0.8462,
+        "precision": 0.5651,
+        "spurious_route_rate": 0.3928,
+        "edges": 194.6667,
+        "routing_success": 0.875,
+        "build_seconds": 0.1448
+      },
+      "dbscan_graph": {
+        "f1": 0.1661,
+        "usable_route_rate": 0.1466,
+        "dest_reach": 0.8462,
+        "precision": 0.3373,
+        "spurious_route_rate": 0.8534,
+        "edges": 4.6667,
+        "routing_success": 0.5313,
+        "build_seconds": 0.0411
+      },
+      "spline_mapmatch": {
+        "f1": 0.7008,
+        "usable_route_rate": 0.6771,
+        "dest_reach": 1.0,
+        "precision": 0.5966,
+        "spurious_route_rate": 0.3229,
+        "edges": 2756.3333,
+        "routing_success": 1.0,
+        "build_seconds": 0.0466
+      }
+    },
+    "0.12": {
+      "nearest_neighbor": {
+        "f1": 0.2771,
+        "usable_route_rate": 0.0,
+        "dest_reach": 1.0,
+        "precision": 0.1832,
+        "spurious_route_rate": 1.0,
+        "edges": 1664.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0239
+      },
+      "kmeans_delaunay": {
+        "f1": 0.5818,
+        "usable_route_rate": 0.5751,
+        "dest_reach": 0.8205,
+        "precision": 0.5436,
+        "spurious_route_rate": 0.4249,
+        "edges": 195.0,
+        "routing_success": 0.8542,
+        "build_seconds": 0.1229
+      },
+      "dbscan_graph": {
+        "f1": 0.197,
+        "usable_route_rate": 0.0417,
+        "dest_reach": 0.9231,
+        "precision": 0.4833,
+        "spurious_route_rate": 0.9583,
+        "edges": 5.6667,
+        "routing_success": 0.5,
+        "build_seconds": 0.0212
+      },
+      "spline_mapmatch": {
+        "f1": 0.7039,
+        "usable_route_rate": 0.7396,
+        "dest_reach": 1.0,
+        "precision": 0.5998,
+        "spurious_route_rate": 0.2604,
+        "edges": 2634.6667,
+        "routing_success": 1.0,
+        "build_seconds": 0.0331
+      }
+    }
+  },
+  "leader_by_sigma": {
+    "1": "spline_mapmatch",
+    "2": "spline_mapmatch",
+    "4": "spline_mapmatch",
+    "6": "spline_mapmatch",
+    "8": "spline_mapmatch",
+    "10": "spline_mapmatch",
+    "12": "spline_mapmatch"
+  },
+  "kmeans_beats_spline_at": []
+}

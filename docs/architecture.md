@@ -335,6 +335,8 @@ Measured, mean over 6 seeds:
 
 Two findings that change the design:
 
+**On the corrected gate, k-means+Delaunay passes** (+0.483 usable-route over baseline, no routing regression). It is still not adopted: its −0.218 destination-reach regression means some structures cannot be routed to *at all*, which for emergency dispatch is a worse failure than a circuitous route, and its graph fragments into 7 components.
+
 **Destination reach is not a discriminator.** The naive baseline reaches 100% of destinations while 96% of its routes traverse non-path geometry — it connects everything by brute force. The discriminating metric is **`usable_route_rate`**: routes whose traversed length lies predominantly on real path geometry. All dispatch decisions use it.
 
 **PRD §6.2's rejection of seed-and-spline is contradicted by measurement.** It was rejected for having "no mechanism to suppress spurious paths", but its spurious-route rate is 0.313, the lowest of all four. §6.2 conflated *edge count* with *spuriousness* — a dense mesh along genuinely-walked corridors is redundant, not spurious.

@@ -28,6 +28,24 @@ Reproduce: `cd spike && ../.venv-spike/bin/python m0_multiseed.py`
 
 **No candidate passes the gate as originally written.**
 
+Re-scored on the corrected metric (`usable_route_rate`), the ordering inverts
+and becomes meaningful:
+
+```
+re-scored on usable_route_rate vs baseline
+  spline_mapmatch    0.688  dU=+0.651
+  kmeans_delaunay    0.519  dU=+0.483
+  dbscan_graph       0.148  dU=+0.111
+  nearest_neighbor   0.036  dU=+0.000   (baseline)
+```
+
+On the corrected gate, **k-means+Delaunay passes** (+0.483 usable-route, no
+routing regression). It is nonetheless not recommended: it still regresses
+destination reachability by 0.218, which for an emergency dispatch product
+means structures a responder cannot be routed to at all — a worse failure than
+a circuitous route. That, plus its 7-component fragmentation, is why the hybrid
+is adopted instead.
+
 ---
 
 ## 2. Three findings that change the decision
@@ -145,3 +163,61 @@ Recommended production approach, in priority order:
   not a validated operational threshold. Production should expose it as
   configurable route confidence rather than a binary.
 - No code from this spike is production-ready. It is a decision instrument.
+
+---
+
+## 7. GPS-noise sensitivity sweep (follow-up)
+
+The 6-seed sweep varied the noise *seed* but held the noise *distribution*
+fixed. This follow-up isolates the variable across the full realistic range.
+Reproduce: `../.venv-spike/bin/python m0_noise_sweep.py`
+
+Each σ is applied **identically to every mapper**, averaged over 3 seeds, so σ
+is the only variable. Drift and dropout swept independently.
+
+### usable_route_rate by GPS noise
+
+| sigma | nearest_neighbor | kmeans_delaunay | dbscan_graph | spline_mapmatch | leader |
+|---|---|---|---|---|---|
+| 1 m | 0.032 | 0.667 | — | **0.698** | spline_mapmatch |
+| 2 m | 0.052 | 0.615 | — | **0.740** | spline_mapmatch |
+| 4 m | 0.104 | 0.376 | — | **0.712** | spline_mapmatch |
+| 6 m | 0.042 | 0.434 | — | **0.583** | spline_mapmatch |
+| 8 m | 0.073 | 0.192 | — | **0.392** | spline_mapmatch |
+| 10 m | 0.083 | 0.254 | — | **0.365** | spline_mapmatch |
+| 12 m | 0.115 | 0.203 | — | **0.260** | spline_mapmatch |
+
+**Distinct leaders across σ: one** (`spline_mapmatch`).
+**σ values where k-means+Delaunay beats spline: never.**
+
+### Drift and dropout
+
+| drift (σ=3 m) | kmeans usable | spline usable | | dropout (σ=3 m) | kmeans usable | spline usable |
+|---|---|---|---|---|---|---|
+| 0.0 m | 0.559 | **0.729** | | 0 % | 0.559 | **0.729** |
+| 1.0 m | 0.598 | **0.667** | | 5 % | 0.607 | **0.677** |
+| 2.5 m | 0.598 | **0.667** | | 12 % | 0.575 | **0.740** |
+
+All figures at σ=3 m, 3 seeds.
+
+### What this establishes — and what it does not
+
+**The M0 verdict is robust.** The map-matching family leads at every noise
+level from 1 m to 12 m error, under every drift and dropout condition tested.
+k-means+Delaunay never overtakes it. The M0 conclusion was not an artefact of
+one noise regime, which was the specific thing the follow-up was checking.
+
+**Degradation is graceful for the leader, steep for the runner-up.** spline
+holds ~0.70 usable-route up to σ=6 m, then falls to 0.26 at σ=12 m. k-means
+collapses sooner and harder (0.67 → 0.20). If campus capture turns out worse
+than σ=6 m, the hybrid's backbone needs rethinking — that is the operational
+boundary worth watching.
+
+**Dropout is nearly free** (0.729 → 0.740 from 0% to 12%): missing fixes
+degrade the polyline but not its connectivity. Drift matters more than
+dropout (0.729 → 0.667) because systematic offset shifts every snap.
+
+**Still unverified:** campus capture traces are not in the dataset. Every
+number remains synthetic. σ is modelled as isotropic gaussian + linear drift;
+real urban-canyon multipath is worse and directionally biased. **No field
+accuracy is claimed.** PRD §8's risk is narrowed, not retired.

@@ -144,7 +144,18 @@ if __name__ == "__main__":
             f"dRoute={v['delta_routing_success']:+.4f}"
         )
     winners = [v["algorithm"] for v in verdict if v["PASSES_GATE"]]
-    print(f"\n  candidates passing the gate: {winners or 'NONE'}")
+    print(f"\n  candidates passing the ORIGINAL gate: {winners or 'NONE'}")
+    print("  NOTE: the original gate used destination reachability, which the")
+    print("  naive baseline satisfies at 1.000 while 96% of its routes traverse")
+    print("  non-path geometry. Re-scored on usable_route_rate (routes")
+    print("  predominantly on real path geometry) the ordering inverts:")
+    base = rows["nearest_neighbor"]
+    print("\n  re-scored on usable_route_rate vs baseline:")
+    for name, r in sorted(rows.items(), key=lambda kv: -(kv[1]["usable_route_rate"][0] or 0)):
+        u = r["usable_route_rate"][0] or 0.0
+        b = base["usable_route_rate"][0] or 0.0
+        mark = "  (baseline)" if name == "nearest_neighbor" else ""
+        print(f"    {name:<18} {u:.3f}  dU={u - b:+.3f}{mark}")
 
     with open("m0_results_multiseed.json", "w") as fh:
         json.dump(
