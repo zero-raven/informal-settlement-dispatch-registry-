@@ -60,13 +60,27 @@ fi
 section "M3 path graph (M0 hybrid) + routing"
 if [ -x .venv-spike/bin/python ]; then
   if out=$(.venv-spike/bin/python -m pytest services/graph-service/test/ -q 2>&1); then
-    ok "$(printf '%s' "$out" | tail -1 | sed 's/^/hybrid build + routing + regression gate: /')"
+    ok "$(printf '%s' "$out" | tail -1 | sed 's/^/hybrid + routing + cross-service dispatch E2E: /')"
   else
     bad "M3 graph tests failed"
     printf '%s\n' "$out" | grep -E 'FAILED|Error' | head -8 | sed 's/^/      /'
   fi
 else
   printf '  %s—%s spike venv absent; run: cd spike && ./run.sh setup\n' "$DIM" "$RST"
+fi
+
+# ------------------------------------------------------------- M4 dispatcher
+section "M4 dispatcher app"
+if [ -d .cache/flutter ]; then
+  export PATH="$PWD/.cache/flutter/bin:$PATH"
+  if out=$(cd apps/dispatcher && timeout 300 flutter test --reporter compact 2>&1); then
+    ok "$(printf '%s' "$out" | tr '\r' '\n' | grep -oE '\+[0-9]+: All tests passed!' | tail -1 | sed 's/^/dispatcher UI /')"
+  else
+    bad "dispatcher tests failed"
+    printf '%s\n' "$out" | tail -10 | sed 's/^/      /'
+  fi
+else
+  printf '  %s—%s Flutter SDK absent\n' "$DIM" "$RST"
 fi
 
 # --------------------------------------------------------------- PostGIS layer

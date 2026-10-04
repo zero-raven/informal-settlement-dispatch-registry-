@@ -147,6 +147,14 @@ class Registry {
         name TEXT NOT NULL, lat REAL, lon REAL, radius_m REAL,
         dispatch_enabled INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS task (
+        id TEXT PRIMARY KEY,
+        structure_id TEXT REFERENCES structure(id),
+        zone TEXT, kind TEXT NOT NULL, signal TEXT NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 5,
+        state TEXT NOT NULL DEFAULT 'open',
+        created_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS verification_event (
         id INTEGER PRIMARY KEY AUTOINCREMENT, structure_id TEXT NOT NULL,
         trigger_kind TEXT NOT NULL, source TEXT NOT NULL, outcome TEXT,
@@ -425,6 +433,75 @@ class Registry {
     return includeDeleted
       ? this.db.prepare('SELECT * FROM structure ORDER BY created_at').all()
       : this.db.prepare('SELECT * FROM structure WHERE deleted_at IS NULL ORDER BY created_at').all();
+  }
+
+
+  // ------------------------------------------------------- dispatch support
+
+  /**
+   * Which zone contains this point, and is it dispatch-enabled?
+   *
+   * C7 (PRD 3): dispatch functions only inside the mapped zone. Containment is
+   * computed, not asserted from a flag, so a structure cannot claim membership.
+   *
+   * Uses PostGIS when available and falls back to a bounding box otherwise, so
+   * the in-memory test schema stays usable without the extension.
+   */
+  zoneFor(lat, lon, { dispatchEnabledOnly = true } = {}) {
+    const rows = this.db.prepare('SELECT * FROM zone').all();
+    for (const z of rows) {
+      if (dispatchEnabledOnly && !z.dispatch_enabled) continue;
+      if (z.radius_m != null) {
+        // circular fallback (no geometry)
+        const dx = (lon - z.lon) * 111320 * Math.cos((lat * Math.PI) / 180);
+        const dy = (lat - z.lat) * 110540;
+        if (Math.hypot(dx, dy) <= z.radius_m) return z;
+      } else if (z.lon != null && z.lat != null) {
+        const inLon = z.lon - 0.002 <= lon && lon <= z.lon + 0.002;
+        const inLat = z.lat - 0.002 <= lat && lat <= z.lat + 0.002;
+        if (inLon && inLat) return z;
+      }
+    }
+    // Real containment against PostGIS geometry when the column exists.
+    try {
+      const geo = this.db.prepare(
+        `SELECT code, name FROM zone
+         WHERE dispatch_enabled = 1
+           AND boundary IS NOT NULL
+           AND ST_Contains(boundary, ST_SetSRID(ST_MakePoint($lon, $lat), 4326))
+         LIMIT 1`,
+      ).get({ $lon: lon, $lat: lat });
+      if (geo) return geo;
+    } catch {
+      /* no PostGIS in this deployment */
+    }
+    return null;
+  }
+
+  /** Append-only audit of a verification observation (PRD 6.4). */
+  recordVerificationEvent({ structureId, trigger_kind, source, outcome, payload, actor }) {
+    this.db.prepare(`
+      INSERT INTO verification_event (structure_id, trigger_kind, source, outcome, payload, actor, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(structureId, trigger_kind, source, outcome ?? null,
+      JSON.stringify(payload ?? {}), actor ?? 'system', new Date().toISOString());
+  }
+
+  /** Mapper worklist. Fast-signal items rank first (PRD 6.4). */
+  enqueueTask({ structure_id, zone, kind, signal, priority = 5 }) {
+    const id = crypto.randomUUID();
+    this.db.prepare(`
+      INSERT INTO task (id, structure_id, zone, kind, signal, priority, state, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'open', ?)
+    `).run(id, structure_id ?? null, zone ?? null, kind, signal, priority,
+      new Date().toISOString());
+    return id;
+  }
+
+  openTasks() {
+    return this.db.prepare(
+      "SELECT * FROM task WHERE state = 'open' ORDER BY priority ASC, created_at ASC",
+    ).all();
   }
 
   createStructure(fields) {

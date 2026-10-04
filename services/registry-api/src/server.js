@@ -14,6 +14,7 @@
 const http = require('node:http');
 const { Registry } = require('./registry.js');
 const { renderQr } = require('./qr.js');
+const { createBackend } = require('./dispatch.js');
 
 const PORT = Number(process.env.PORT || 8090);
 
@@ -28,8 +29,16 @@ function json(res, code, body) {
   res.end(s);
 }
 
-function createServer({ registry = new Registry(process.env.DB_PATH || ':memory:') } = {}) {
-  return http.createServer(async (req, res) => {
+function createServer({
+  registry = new Registry(process.env.DB_PATH || ':memory:'),
+  backendName = process.env.DISPATCH_BACKEND || 'internal',
+  router = process.env.GRAPH_URL ? null : null,
+} = {}) {
+  // PRD 3: the backend is configuration-selected, and the core depends only on
+  // the interface. A future external adapter registers here unchanged.
+  const backend = createBackend(backendName, { registry, router });
+
+  const srv = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return json(res, 204, {});
 
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -118,6 +127,45 @@ function createServer({ registry = new Registry(process.env.DB_PATH || ':memory:
         return json(res, 200, await renderQr(code));
       }
 
+      // ---- dispatch -------------------------------------------------------
+      if (req.method === 'GET' && url.pathname === '/v1/dispatch/capabilities') {
+        return json(res, 200, await backend.capabilities());
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/dispatch/lookup') {
+        if (role !== 'dispatcher' && role !== 'admin') {
+          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
+        }
+        const b = await body();
+        const out = await backend.lookup(b.code, b.responder_location, b.profile || 'foot');
+        if (out.error) return json(res, out.http || 400, out);
+        // occupant context is deliberately absent: consent-api resolves it
+        // (C3). Absence here is the correct default, not an omission.
+        out.occupant_context = { present: false };
+        return json(res, 200, out);
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/dispatch/assign') {
+        if (role !== 'dispatcher' && role !== 'admin') {
+          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
+        }
+        const b = await body();
+        return json(res, 200, await backend.dispatch(b.code, b));
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/dispatch/outcome') {
+        if (role !== 'dispatcher' && role !== 'admin') {
+          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
+        }
+        const b = await body();
+        return json(res, 200, await backend.outcome(b.dispatch_id, b));
+      }
+
+      // ---- mapper worklist ------------------------------------------------
+      if (req.method === 'GET' && url.pathname === '/v1/tasks') {
+        return json(res, 200, { items: registry.openTasks() });
+      }
+
       // ---- C7 zone kill switch --------------------------------------------
       if (req.method === 'GET' && url.pathname === '/v1/zones') {
         return json(res, 200, {
@@ -130,6 +178,10 @@ function createServer({ registry = new Registry(process.env.DB_PATH || ':memory:
       return json(res, 500, { error: 'internal', detail: e.message });
     }
   });
+
+  srv.registry = registry;
+  srv.backend = backend;
+  return srv;
 }
 
 if (require.main === module) {

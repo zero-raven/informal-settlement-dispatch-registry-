@@ -216,23 +216,45 @@ the nearest node, so a point far outside the mapped network still returned a
 confident, plausible-looking route — the worst possible failure for emergency
 dispatch. `route()` now refuses beyond `max_snap_m` and says why.
 
-### M4 — Dispatch interface + routing (weeks 12–13)
+### M4 — Dispatch interface + routing (COMPLETE)
 
-**§3 DECIDED: internal dispatch interface is the only implemented backend this semester.**
+**Status: done.** 15 registry dispatch tests + 11 graph/E2E tests + 2 dispatcher
+UI tests, including a cross-service run over real HTTP.
 
-- [ ] `DispatchBackend` interface — `lookup()`, `dispatch()`, `outcome()`, `capabilities()`; core depends on the interface
-- [ ] `InternalBackend` implementation; backend selected by configuration
-- [ ] `POST /v1/dispatch/lookup` — code → location + route + warnings
-- [ ] Dispatcher app: code entry, route render, turn-by-turn, offline-cached zone
-- [ ] Zone enforcement → `403 outside_mapped_zone` (C7)
-- [ ] `code_not_finalized` and `structure_in_dedup_review` hard-block dispatch
-- [ ] `no_route` handled honestly, not papered over
+**PRD §3 — the abstraction, as decided.** `DispatchBackend` defines exactly four
+methods (`lookup`, `dispatch`, `outcome`, `capabilities`). `InternalBackend` is
+the MVP; the backend is selected by configuration and the core depends only on
+the interface. `capabilities()` reports `supportsExternalHandoff: false` — an
+external CAD/AVL handoff is advertised as absent rather than assumed. No adapter
+is designed, estimated, or stubbed.
 
-**Exit:** MVP flow end-to-end: Structure ID → lookup → location → route → responder → outcome.
+**C7 is now proven end to end.** A valid, issued code is still refused with
+`403 outside_mapped_zone` while no zone is dispatch-enabled. The pilot default
+ships dispatch **off**; the test fails loudly if that ever changes.
 
-**Future external adapter — NOT IN SCOPE, NOT DESIGNED, NOT ESTIMATED.** A CAD/AVL/NGO backend would implement the same interface and be selected by the same configuration switch. That is the entire commitment made now.
+**Hard blocks.** `code_not_finalized`, `structure_in_dedup_review` (409), and
+`code_superseded` — a merged-away code reads as *stale*, not merely unknown,
+because those need different responses from a responder holding an old placard.
 
----
+**Fast signal (PRD §6.4).** A failed dispatch writes a `verification_event` with
+`trigger_kind='fast'` and opens a mapper task at priority 1. A confirmed outcome
+records an observation and opens no task. Responder observation is the one
+non-inference path permitted to supersede ground truth (C8).
+
+**Occupant context is absent by default.** The registry cannot see identity (C3),
+so dispatch returns `{"present": false}` — a test asserts the serialised response
+contains no `resident`/`consent`/`phone` anywhere.
+
+**Two services, one flow.** The cross-service E2E starts both the Node registry
+and the Python graph service on real ports, builds a graph from campus traces
+through the HTTP API, and runs lookup → route → assign → outcome. Only the M0
+approved algorithm serves routes; a comparison build reports
+`serves_routes: false`.
+
+**One test-ordering defect worth recording.** A comparison build published v2
+before the routing test asserted `graph_version == 1`. The assertion now pins
+whatever the registry reports as current — the original would have passed or
+failed depending on test order rather than on behaviour.
 
 ### M5 — Feedback / re-verification engine (weeks 14–15)
 

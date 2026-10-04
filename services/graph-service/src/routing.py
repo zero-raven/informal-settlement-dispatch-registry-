@@ -37,11 +37,13 @@ class Route:
     min_confidence: float = 0.0
     unverified_legs: int = 0
     warnings: list[str] = field(default_factory=list)
+    profile: str = "foot"
 
     def to_dict(self):
         return {
             "reachable": self.reachable,
             "graph_version": self.graph_version,
+            "profile": self.profile,
             "total_distance_m": round(self.total_distance_m, 2),
             "min_confidence": round(self.min_confidence, 4),
             "unverified_legs": self.unverified_legs,
@@ -93,7 +95,7 @@ class GraphRegistry:
 
 
 def route(graph, start_xy, end_xy, *, graph_version=None, confidence_floor=0.0,
-          max_snap_m=25.0):
+          max_snap_m=25.0, profile="foot"):
     """A* between two coordinates on the inferred graph.
 
     Returns a Route with `reachable=False` rather than raising when no path
@@ -104,6 +106,9 @@ def route(graph, start_xy, end_xy, *, graph_version=None, confidence_floor=0.0,
     arbitrary coordinate to the nearest node would otherwise produce a confident,
     plausible-looking route to the wrong place — the worst possible failure for
     an emergency dispatch call.
+
+    `profile` is accepted and echoed but only 'foot' is modelled; the pilot is a
+    pedestrian network (PRD 3, campus standing in for a settlement).
     """
     from scipy.spatial import cKDTree
 
@@ -200,4 +205,5 @@ def route(graph, start_xy, end_xy, *, graph_version=None, confidence_floor=0.0,
         min_confidence=minc,
         unverified_legs=unverified,
         warnings=warnings,
+        profile=profile,
     )
