@@ -96,6 +96,15 @@ else
   printf '  %s—%s PostGIS absent; run: ./scripts/setup-postgis.sh\n' "$DIM" "$RST"
 fi
 
+# ------------------------------------------------------- M5 feedback engine
+section "M5 feedback / re-verification engine"
+if out=$(cd services/registry-api && node --test test/feedback.test.js 2>&1); then
+  ok "$(printf '%s' "$out" | grep -E '^. (tests|pass) ' | tr '\n' ' ')"
+else
+  bad "feedback engine tests failed"
+  printf '%s\n' "$out" | grep -E '✖' | head -8 | sed 's/^/      /'
+fi
+
 # ----------------------------------------------------------------- mapper app
 section "M1 mapper app (offline capture)"
 if [ -d .cache/flutter ]; then

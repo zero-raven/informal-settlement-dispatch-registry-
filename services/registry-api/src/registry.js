@@ -131,6 +131,9 @@ class Registry {
         produced_by TEXT, produced_at TEXT, confidence REAL,
         supersedes_id TEXT, created_at TEXT NOT NULL
       );
+      -- Only an ASSERTED row is the current value. A rejected candidate is a
+      -- terminal state, not a value: it must never satisfy uniqueness, or a
+      -- rejected candidate would block a later legitimate assertion.
       CREATE UNIQUE INDEX IF NOT EXISTS assertion_current
         ON assertion (entity_table, entity_id, field) WHERE state = 'asserted';
       CREATE TABLE IF NOT EXISTS sync_receipt (
@@ -153,10 +156,14 @@ class Registry {
         zone TEXT, kind TEXT NOT NULL, signal TEXT NOT NULL,
         priority INTEGER NOT NULL DEFAULT 5,
         state TEXT NOT NULL DEFAULT 'open',
+        assignee TEXT, note TEXT, outcome TEXT,
+        payload_json TEXT,
+        completed_at TEXT,
         created_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS verification_event (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, structure_id TEXT NOT NULL,
+        -- NULL for zone-level work (a whole re-survey, not one structure)
+        id INTEGER PRIMARY KEY AUTOINCREMENT, structure_id TEXT,
         trigger_kind TEXT NOT NULL, source TEXT NOT NULL, outcome TEXT,
         payload TEXT, actor TEXT NOT NULL, created_at TEXT NOT NULL
       );
@@ -488,13 +495,15 @@ class Registry {
   }
 
   /** Mapper worklist. Fast-signal items rank first (PRD 6.4). */
-  enqueueTask({ structure_id, zone, kind, signal, priority = 5 }) {
+  enqueueTask({ structure_id, zone, kind, signal, priority = 5,
+                 note = null, payload = null }) {
     const id = crypto.randomUUID();
     this.db.prepare(`
-      INSERT INTO task (id, structure_id, zone, kind, signal, priority, state, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'open', ?)
+      INSERT INTO task (id, structure_id, zone, kind, signal, priority, state,
+                        note, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)
     `).run(id, structure_id ?? null, zone ?? null, kind, signal, priority,
-      new Date().toISOString());
+      note, payload ? JSON.stringify(payload) : null, new Date().toISOString());
     return id;
   }
 

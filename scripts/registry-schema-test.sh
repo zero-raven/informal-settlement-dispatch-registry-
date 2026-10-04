@@ -65,7 +65,24 @@ sed -e 's/geometry *([A-Za-z]*, *[0-9]*)/geometry/g' \
 
 # The aggregate view calls ST_Contains, which the shim stubs to false; keep it
 # so its projection is still validated for the PRD 6.6 leak check.
-P -d registry_db -f "$SED" > /tmp/reg-apply.log 2>&1
+# Apply EVERY migration in order, not just 000: a migration that never runs in
+# a test is a migration that has never been verified. 001 is skipped here because
+# it needs real PostGIS and is covered by scripts/postgis-verify.sh.
+: > /tmp/reg-apply.log
+for f in ../services/registry-api/migrations/0*.sql; do
+  case "$(basename "$f")" in
+    *postgis_verify*) continue ;;
+  esac
+  # strip only what genuinely requires PostGIS; everything else runs for real
+  sed -e 's/geometry *([A-Za-z]*, *[0-9]*)/geometry/g' \
+      -e '/USING gist/d' \
+      -e '/::geometry/d' \
+      -e '/CREATE EXTENSION IF NOT EXISTS postgis/d' \
+      "$f" > /tmp/reg-one.sql
+  printf '\n-- ==== %s ====\n' "$(basename "$f")" >> /tmp/reg-apply.log
+  P -d registry_db -f /tmp/reg-one.sql >> /tmp/reg-apply.log 2>&1
+done
+
 if ! grep -q "^ERROR" /tmp/reg-apply.log; then
   pass "migration applies cleanly"
 else
@@ -171,6 +188,46 @@ if P -d registry_db -c "INSERT INTO dedup_candidate (structure_a,structure_b,dis
   fail "C2 BROKEN: a structure was compared with itself"
 else
   pass "a structure cannot be deduped against itself (CHECK)"
+fi
+
+printf '\nC8/M5 — feedback worklist and candidate lifecycle\n'
+printf -- '--------------------------------------------------------------------------------\n'
+
+# 002_feedback.sql must have created the worklist with its ranking columns
+TASKCOLS=$(P -d registry_db -tAc "
+  SELECT count(*) FROM information_schema.columns
+  WHERE table_name='task' AND column_name IN
+    ('signal','signal_rank','priority','state','assignee','outcome','payload_json','completed_at');")
+if [ "${TASKCOLS:-0}" -ge 7 ]; then
+  pass "task table created with ranking + lifecycle columns"
+else
+  fail "task table missing columns (found ${TASKCOLS:-0}, expected >= 7)"
+fi
+
+# 'rejected' must be a legal assertion state, or rejection cannot be recorded
+STATES=$(P -d registry_db -tAc "
+  SELECT string_agg(e.enumlabel, ',') FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_enum e ON e.enumtypid = t.oid
+  WHERE t.typname='assertion_state' AND n.nspname='public';")
+case "$STATES" in
+  *rejected*) pass "assertion.state accepts 'rejected' ($STATES)" ;;
+  *) fail "assertion.state lacks 'rejected' — rejection cannot be recorded ($STATES)" ;;
+esac
+
+# an inference candidate can never be a current value
+if P -d registry_db -c "INSERT INTO assertion (id,entity_table,entity_id,field,value,evidence_class,state,source,produced_by) VALUES ('a0000000-0000-0000-0000-000000000001','structure','22222222-2222-2222-2222-222222222222','entrance_geom','{}','inference','asserted','imagery_diff','ml');" >/dev/null 2>&1; then
+  fail "C8 BROKEN: an inference row became an asserted value"
+else
+  pass "an inference row can never be state='asserted'"
+fi
+
+# a REJECTED candidate must not occupy the current-value slot
+P -d registry_db -c "INSERT INTO assertion (id,entity_table,entity_id,field,value,evidence_class,state,source,produced_by) VALUES ('a0000000-0000-0000-0000-000000000002','structure','22222222-2222-2222-2222-222222222222','footprint','{}','inference','rejected','imagery_diff','ml');" >/dev/null 2>&1
+if [ "$(P -d registry_db -tAc "SELECT count(*) FROM assertion WHERE field='footprint' AND state='asserted';")" = "0" ]; then
+  pass "a rejected candidate does not occupy the current-value slot"
+else
+  fail "a rejected candidate became the current value"
 fi
 
 printf '\n'

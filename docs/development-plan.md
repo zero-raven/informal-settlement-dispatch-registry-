@@ -256,20 +256,45 @@ before the routing test asserted `graph_version == 1`. The assertion now pins
 whatever the registry reports as current — the original would have passed or
 failed depending on test order rather than on behaviour.
 
-### M5 — Feedback / re-verification engine (weeks 14–15)
+### M5 — Feedback / re-verification engine (COMPLETE)
 
-The two-speed model (PRD §6.4), implemented strictly as the **C8 pipeline**.
+**Status: done.** 18 engine tests + 5 HTTP-boundary tests, and `002_feedback.sql`
+verified against the real schema.
 
-- [ ] Fast signal: dispatch failure + resident complaint → immediate verification task
-- [ ] Slow signal: imagery diffing → weeks-to-months cadence, bounded by free-imagery refresh
-- [ ] Free open footprint datasets as bootstrap layer and slow baseline, never as a live-change source
-- [ ] `verification_event` append-only trail
-- [ ] Mapper task worklist, fast-signal items ranked first
-- [ ] Every inference output enters as `state='candidate'`; promotion requires a ground-truth observation
+**The two-speed model (PRD §6.4).** `SIGNAL_RANK` makes fast outrank slow by
+construction — rank is folded into the priority key, so a bug in the `priority`
+field cannot demote an emergency. A test inverts the priorities deliberately to
+prove it.
 
-**Exit:** a failed dispatch and a resident complaint both produce verification tasks; imagery produces a third, slower queue. **No inference path can update a structure directly** — verified by the C8 test and role grants.
+**The C8 pipeline is the only permitted flow.** `raiseCandidate` can only write a
+candidate; `verify` is the sole path to ground truth and refuses any non-human
+principal (`ml:*`, `imagery:*`, `system`, …). Over HTTP the verifying identity
+comes from the session header, never the body, so a client cannot forge it.
 
----
+**Rejection is first-class.** A rejected candidate is a terminal state, not a
+deletion, and rejecting one leaves the existing ground truth completely
+untouched. The stats report a `conversion_rate` — most imagery candidates
+should be rejected, and that is a result to publish, not a failure to hide.
+
+**Three defects found and fixed:**
+
+1. **`SIGNAL_RANK['fast'] === 0` is falsy.** The guard
+   `if (!SIGNAL_RANK[signal]) throw new Error('unknown signal')` therefore
+   **rejected the fastest signal and accepted the slow ones** — precisely
+   backwards, and it would have made every emergency dispatch silently
+   undispatchable. Now tested with `Object.hasOwn`.
+2. **Object spread overwrote the pipeline's own state.** `{ state: 'confirmed',
+   ...written }` let `written.state = 'asserted'` win. Spread order matters; now
+   both values are exposed explicitly.
+3. **`002_feedback.sql` dropped a shared enum type.** `assertion_state` is used
+   by `assertion.state`, `walk_segment.state` *and* `zone_priority.state`, so
+   `DROP TYPE` broke all three. The migration now uses `ALTER TYPE ... ADD VALUE`,
+   which preserves every dependent column. **This was only found by applying the
+   migration** — the previous suite ran 000 alone, so 002 had never executed.
+
+That third one prompted a change to the harness: `registry-schema-test.sh` now
+applies *every* migration in order, because a migration that never runs in a test
+is a migration that has never been verified.
 
 ### M6 — Service data + consent/privacy controls (weeks 16–17)
 

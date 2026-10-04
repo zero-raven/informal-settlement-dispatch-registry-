@@ -15,6 +15,7 @@ const http = require('node:http');
 const { Registry } = require('./registry.js');
 const { renderQr } = require('./qr.js');
 const { createBackend } = require('./dispatch.js');
+const { FeedbackEngine } = require('./feedback.js');
 
 const PORT = Number(process.env.PORT || 8090);
 
@@ -37,6 +38,7 @@ function createServer({
   // PRD 3: the backend is configuration-selected, and the core depends only on
   // the interface. A future external adapter registers here unchanged.
   const backend = createBackend(backendName, { registry, router });
+  const feedback = new FeedbackEngine({ registry });
 
   const srv = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return json(res, 204, {});
@@ -161,9 +163,58 @@ function createServer({
         return json(res, 200, await backend.outcome(b.dispatch_id, b));
       }
 
-      // ---- mapper worklist ------------------------------------------------
+      // ---- mapper worklist (two-speed, PRD 6.4) --------------------------
       if (req.method === 'GET' && url.pathname === '/v1/tasks') {
-        return json(res, 200, { items: registry.openTasks() });
+        return json(res, 200, {
+          items: feedback.worklist({ assignee: url.searchParams.get('assignee') }),
+        });
+      }
+
+      // ---- C8: the candidate worklist ------------------------------------
+      if (req.method === 'GET' && url.pathname === '/v1/assertions/candidates') {
+        return json(res, 200, {
+          items: feedback.pendingCandidates({ type: url.searchParams.get('type') }),
+        });
+      }
+
+      // ---- C8: the ONLY candidate -> ground-truth path --------------------
+      if (req.method === 'POST' && /^\/v1\/assertions\/[^/]+\/verify$/.test(url.pathname)) {
+        const id = url.pathname.split('/')[3];
+        const b = await body();
+        try {
+          const out = feedback.verify({
+            assertionId: id,
+            outcome: b.outcome,
+            value: b.value ?? null,
+            // The verifying person is taken from the session, not the body:
+            // a client must not be able to claim to be someone else.
+            actor: req.headers['x-user'] || null,
+            note: b.note ?? null,
+          });
+          return json(res, 200, out);
+        } catch (e) {
+          if (e.code === 'inference_cannot_verify') {
+            return json(res, 403, { error: e.code, detail: e.message });
+          }
+          return json(res, 409, { error: 'verify_failed', detail: e.message });
+        }
+      }
+
+      if (req.method === 'POST' && /^\/v1\/tasks\/[^/]+\/complete$/.test(url.pathname)) {
+        const id = url.pathname.split('/')[3];
+        const b = await body();
+        try {
+          return json(res, 200, feedback.completeTask({
+            taskId: id, outcome: b.outcome ?? 'confirmed',
+            actor: req.headers['x-user'] || null,
+            note: b.note ?? null, updates: b.updates ?? null,
+          }));
+        } catch (e) {
+          if (e.code === 'inference_cannot_verify') {
+            return json(res, 403, { error: e.code, detail: e.message });
+          }
+          return json(res, 409, { error: 'complete_failed', detail: e.message });
+        }
       }
 
       // ---- C7 zone kill switch --------------------------------------------
