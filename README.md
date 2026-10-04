@@ -28,6 +28,7 @@ official stable tarball into `.cache/`. Both are gitignored.
 | `scripts/c3-isolation-test.sh` (8) | `registry_api` is refused `identity_db`; no cross-DB foreign key | C3 |
 | `scripts/postgis-verify.sh` (18) | real PostGIS typmods, gist indexes, `ST_Contains` zone containment, `tstzrange` | C7, C8, PRD 6.6 |
 | `apps/mapper` (7 tests) | capture works with no network; survives restart; UI capture commits offline | C4, PRD 6.1, 6.6 |
+| `services/graph-service` (19 tests) | hybrid build; every edge inference+candidate; A* routing; version pinning; regression gate vs the baseline | C8, C9 |
 | `spike/m0_multiseed.py` | 4 path-graph approaches re-scored over 6 seeds | C9 |
 
 Each is a constraint test, not a smoke test: it asserts something the PRD

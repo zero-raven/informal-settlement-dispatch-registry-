@@ -56,6 +56,19 @@ else
   printf '%s\n' "$out" | grep -E '✖' | head -10 | sed 's/^/      /'
 fi
 
+# ---------------------------------------------------------------- M3 graph
+section "M3 path graph (M0 hybrid) + routing"
+if [ -x .venv-spike/bin/python ]; then
+  if out=$(.venv-spike/bin/python -m pytest services/graph-service/test/ -q 2>&1); then
+    ok "$(printf '%s' "$out" | tail -1 | sed 's/^/hybrid build + routing + regression gate: /')"
+  else
+    bad "M3 graph tests failed"
+    printf '%s\n' "$out" | grep -E 'FAILED|Error' | head -8 | sed 's/^/      /'
+  fi
+else
+  printf '  %s—%s spike venv absent; run: cd spike && ./run.sh setup\n' "$DIM" "$RST"
+fi
+
 # --------------------------------------------------------------- PostGIS layer
 section "M1 spatial layer (PostGIS)"
 if [ -f "$PWD/.pgroot/postgis.conf" ]; then
