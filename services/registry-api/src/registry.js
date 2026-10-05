@@ -161,6 +161,26 @@ class Registry {
         completed_at TEXT,
         created_at TEXT NOT NULL
       );
+      -- PRD 6.6 aggregate reporting view. Projects NO per-structure column,
+      -- so a reporting consumer cannot iterate its way back to individuals.
+      -- The in-memory mirror must carry it or the leak check cannot run.
+      CREATE VIEW IF NOT EXISTS v_zone_service_stats AS
+      SELECT z.code          AS zone_code,
+             count(DISTINCT s.id) AS structures_counted,
+             sv.service_type,
+             count(*) FILTER (WHERE sv.source NOT IN ('none','unknown')) AS connected_count,
+             -- SQLite has no round(x, n) and no ::real; the shipped view uses
+             -- Postgres syntax in 000_init.sql. The mirror only needs the
+             -- COLUMN SHAPE for the PRD 6.6 leak check.
+             cast(count(*) FILTER (WHERE sv.source NOT IN ('none','unknown')) as real)
+               / max(count(*), 1) AS share
+      FROM zone z
+      JOIN structure s ON abs(s.lat - z.lat) <= 0.002
+                       AND abs(s.lon - z.lon) <= 0.002
+      LEFT JOIN structure_service sv ON sv.structure_id = s.id
+      WHERE s.deleted_at IS NULL
+      GROUP BY z.code, sv.service_type;
+
       CREATE TABLE IF NOT EXISTS verification_event (
         -- NULL for zone-level work (a whole re-survey, not one structure)
         id INTEGER PRIMARY KEY AUTOINCREMENT, structure_id TEXT,

@@ -16,6 +16,7 @@ const { Registry } = require('./registry.js');
 const { renderQr } = require('./qr.js');
 const { createBackend } = require('./dispatch.js');
 const { FeedbackEngine } = require('./feedback.js');
+const { readServiceData, aggregateStats, DisclosureRefused } = require('./disclosure.js');
 
 const PORT = Number(process.env.PORT || 8090);
 
@@ -214,6 +215,30 @@ function createServer({
             return json(res, 403, { error: e.code, detail: e.message });
           }
           return json(res, 409, { error: 'complete_failed', detail: e.message });
+        }
+      }
+
+      // ---- PRD 6.6 service-data disclosure --------------------------------
+      if (req.method === 'GET' && url.pathname === '/v1/zones/:code/service-stats') {
+        const zone = url.pathname.split('/')[3];
+        // Aggregate only. This is the ONLY service-data surface a public or
+        // reporting consumer may reach (PRD 6.6).
+        return json(res, 200, aggregateStats(registry, zone));
+      }
+
+      if (req.method === 'GET' && /^\/v1\/structures\/[^/]+\/services$/.test(url.pathname)) {
+        const code = decodeURIComponent(url.pathname.split('/')[3]);
+        try {
+          const out = readServiceData({
+            registry, role, code,
+            opts: { municipalScopes: (req.headers['x-scopes'] ?? '').split(',').filter(Boolean) },
+          });
+          return json(res, 200, out);
+        } catch (e) {
+          if (e instanceof DisclosureRefused) {
+            return json(res, e.http, { error: e.code, detail: e.message });
+          }
+          return json(res, e.http ?? 500, { error: 'service_read_failed', detail: e.message });
         }
       }
 

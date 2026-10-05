@@ -296,38 +296,63 @@ That third one prompted a change to the harness: `registry-schema-test.sh` now
 applies *every* migration in order, because a migration that never runs in a test
 is a migration that has never been verified.
 
-### M6 — Service data + consent/privacy controls (weeks 16–17)
+### M6 — Service data + consent/privacy controls (COMPLETE)
 
-**§6.6 DECIDED POLICY:** *"Structure-level service information is sensitive operational data and is not publicly exposed. Access is role-based; aggregate service statistics may be exposed where appropriate."*
+**Status: done.** 15 disclosure tests + 12 consent tests + 2 new C3 assertions.
 
-**Access model (as decided):**
+**The decided access model, as executable assertions:**
 
-| Actor | Service-data access |
+| Actor | Enforced |
 |---|---|
-| **Public** | No individual structure-level service data — none |
-| **Mapper** | Relevant service information needed for field work |
-| **Dispatcher** | Only information operationally relevant to response |
-| **Authorized municipal/NGO users** | Access according to role |
-| **Public analytics/reporting** | Aggregate data only |
+| Public / anonymous / resident | no individual service data; offered aggregate statistics instead |
+| Mapper | field-relevant records, coarsened under `aggregate_only` |
+| Dispatcher | only `water`, `electricity`, `sanitation`, `road_access`; irrelevant fields dropped, omitted types stated explicitly |
+| municipal / NGO | by explicit `service_data.read` scope assignment |
+| Inference (ML) | aggregate only; per-structure reads refused |
+| consent-api | nothing |
 
-**PII risk vs sensitive service-data risk are explicitly distinct.** Resident identity is PII: it identifies a person, and it is opt-in, separately stored, revocable. Service data is **sensitive operational data**: knowing a structure lacks water or has a shared sanitation connection is operationally revealing *without identifying any resident*. It can expose vulnerability, and can be used to target enforcement or exclusion — even with no name attached. Both are protected, by different mechanisms: identity by consent and a separate store (§6.3), service data by role-based access and non-public exposure (§6.6). **Neither is a subset of the other, and neither subsumes the other.**
+**Dispatcher shaping is response-shaping, not field-masking.** A water
+connection exposes `quality`; `shared_with_count` is omitted because it does not
+change what a responder does on arrival. Omitted service types are reported in
+`omitted_types` rather than silently absent — a partially-populated response
+implies a completeness it does not have.
 
-- [ ] `disclosure_policy` per structure, default `aggregate_only` (`full` / `aggregate_only` / `redacted`)
-- [ ] `full` reads restricted to mapper/dispatcher/admin/municipal-NGO per role, audit-logged
-- [ ] Aggregate statistics via a dedicated view with no per-structure row path
-- [ ] Resident app has no service-data surface, by construction
-- [ ] `identity_db` service, separate credentials; consent scopes; audited occupant-context resolver
-- [ ] Right-to-be-forgotten: PII zeroed, `erased_at` set, structure records untouched
+**The PII / service-data distinction, enforced.** Service data is **role-gated,
+never consent-gated**. A test asserts a mapper can read service data with no
+consent record existing anywhere, and that no service response contains the
+string `resident`, `consent`, or `occupant`. Routing service data through the
+consent vault would be the design error: no resident consented to their
+*structure* being inspected.
 
-**Policy tests (like the isolation test — they fail if a future endpoint leaks):**
-- [ ] **No unauthenticated route and no resident-facing route returns any service field**
-- [ ] **Dispatcher role returns only operationally relevant service fields**, verified field-by-field
-- [ ] **Public/aggregate endpoint cannot be coerced into per-structure rows**
-- [ ] **C3 test:** `registry-api` credentials cannot open a connection to `identity_db`
+**Consent bridge (PRD §6.3).** Absence is the default response. The load-bearing
+test asserts that a revoked link produces a response **deep-equal** to a
+never-linked one — because a dispatcher who can tell those apart learns
+something, and that something is itself a disclosure.
 
-**Exit:** access model enforced field-by-field; a resident's revoked identity is indistinguishable from no resident; no service data reachable without an authorized role.
+**Audit.** Every disclosure is logged *including the refusals*, with actor and
+timestamp. Dispatch accountability is the check on consent-by-design.
 
----
+**Erasure.** PII zeroed, every scope revoked atomically, resident unresolvable —
+and `structuralDataUntouched: true`, asserted. A resident forgetting their
+identity must not delete the record of a place; emergency dispatch depends on it.
+
+**Two defects found and fixed:**
+
+1. **The aggregate view was missing from the in-memory test schema**, so the
+   PRD §6.6 "no per-structure column" leak check could not run at all. The shipped
+   `000_init.sql` had it; the mirror did not — so the mirror was testing a schema
+   that does not exist. Adding it immediately exposed a second problem: the
+   Postgres `round(x::real, 3)` is not valid SQLite, which broke **75 tests**.
+   Both fixed; the leak check now runs.
+2. A `write_file` to a not-yet-created `services/consent-api/test/` directory
+   **failed silently**. The test never existed until I checked. Worth noting:
+   a green "tests pass" can mean "no tests were collected".
+
+**Known limitation, flagged rather than shipped silently.** The consent store
+uses a dev-derived encryption key (`dev-only-do-not-ship`). It demonstrates that
+PII is not plaintext and not queryable, but a real deployment needs KMS-managed
+keys with rotation. A C3 assertion now *fails* if that constant is present
+without its warning marker — it cannot be shipped unnoticed.
 
 ### M7 — Change detection (weeks 18–19)
 

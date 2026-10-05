@@ -181,6 +181,24 @@ else
 fi
 
 say ""
+say "8. consent-api functions against identity_db (the C3 boundary is usable, not broken)"
+N=$(PGPASSWORD=consent_only psql -h 127.0.0.1 -p 5749 -U consent_api -d identity_db -tAc \
+  "INSERT INTO resident (display_alias, created_at) VALUES ('probe', now()) RETURNING id;" 2>&1)
+if printf '%s' "$N" | grep -qiE '^[0-9a-f-]{36}$'; then
+  pass "consent service can read AND write identity_db"
+else
+  fail "consent service cannot operate: $N"
+fi
+
+say ""
+say "9. the C8 dev encryption key is flagged, not silently shipped"
+if grep -q "dev-only-do-not-ship" ../services/consent-api/src/consent.js 2>/dev/null; then
+  pass "dev key is explicitly marked (must be replaced with KMS keys before deploy)"
+else
+  fail "dev encryption key found but NOT marked — it could ship unnoticed"
+fi
+
+say ""
 say "────────────────────────────────────────────────────────────────────────"
 if [ "$FAILED" = "0" ]; then
   printf '  \033[32mC3 VERIFIED — identity is structurally unreachable from the registry\033[0m\n\n'

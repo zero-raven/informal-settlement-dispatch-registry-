@@ -105,6 +105,23 @@ else
   printf '%s\n' "$out" | grep -E '✖' | head -8 | sed 's/^/      /'
 fi
 
+# ------------------------------------------------- M6 disclosure + consent
+section "M6 service-data disclosure (6.6)"
+if out=$(cd services/registry-api && node --test test/disclosure.test.js 2>&1); then
+  ok "$(printf '%s' "$out" | grep -E '^. (tests|pass) ' | tr '\n' ' ')"
+else
+  bad "disclosure tests failed"
+  printf '%s\n' "$out" | grep -E '✖' | head -8 | sed 's/^/      /'
+fi
+
+section "M6 consent vault (6.3) + occupant bridge"
+if out=$(cd services/consent-api && node --test test/ 2>&1); then
+  ok "$(printf '%s' "$out" | grep -E '^. (tests|pass) ' | tr '\n' ' ')"
+else
+  bad "consent tests failed"
+  printf '%s\n' "$out" | grep -E '✖' | head -8 | sed 's/^/      /'
+fi
+
 # ----------------------------------------------------------------- mapper app
 section "M1 mapper app (offline capture)"
 if [ -d .cache/flutter ]; then
