@@ -1,3 +1,6 @@
+# Cache & local SDKs
+.cache/
+
 # Dart/Flutter
 .dart_tool/
 build/
