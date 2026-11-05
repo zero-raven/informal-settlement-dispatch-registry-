@@ -14,7 +14,7 @@
         "spurious_route_rate": 0.9681,
         "edges": 936.6667,
         "routing_success": 0.9792,
-        "build_seconds": 0.0262
+        "build_seconds": 0.0181
       },
       "kmeans_delaunay": {
         "f1": 0.6137,
@@ -24,7 +24,7 @@
         "spurious_route_rate": 0.3333,
         "edges": 196.0,
         "routing_success": 1.0,
-        "build_seconds": 0.1622
+        "build_seconds": 0.0974
       },
       "dbscan_graph": {
         "f1": 0.0,
@@ -34,7 +34,7 @@
         "spurious_route_rate": 1.0,
         "edges": 0.6667,
         "routing_success": 0.2083,
-        "build_seconds": 0.0218
+        "build_seconds": 0.0209
       },
       "spline_mapmatch": {
         "f1": 0.699,
@@ -44,7 +44,7 @@
         "spurious_route_rate": 0.3021,
         "edges": 1457.3333,
         "routing_success": 1.0,
-        "build_seconds": 0.023
+        "build_seconds": 0.0183
       }
     },
     "2": {
@@ -56,7 +56,7 @@
         "spurious_route_rate": 0.9479,
         "edges": 1458.0,
         "routing_success": 1.0,
-        "build_seconds": 0.02
+        "build_seconds": 0.0177
       },
       "kmeans_delaunay": {
         "f1": 0.6278,
@@ -66,7 +66,7 @@
         "spurious_route_rate": 0.3855,
         "edges": 196.0,
         "routing_success": 1.0,
-        "build_seconds": 0.1007
+        "build_seconds": 0.0976
       },
       "dbscan_graph": {
         "f1": 0.1187,
@@ -76,7 +76,7 @@
         "spurious_route_rate": 0.9825,
         "edges": 3.3333,
         "routing_success": 0.5208,
-        "build_seconds": 0.0236
+        "build_seconds": 0.0214
       },
       "spline_mapmatch": {
         "f1": 0.7076,
@@ -86,7 +86,7 @@
         "spurious_route_rate": 0.2604,
         "edges": 2270.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0249
+        "build_seconds": 0.0234
       }
     },
     "4": {
@@ -98,7 +98,7 @@
         "spurious_route_rate": 0.8959,
         "edges": 1954.0,
         "routing_success": 1.0,
-        "build_seconds": 0.0186
+        "build_seconds": 0.0158
       },
       "kmeans_delaunay": {
         "f1": 0.5954,
@@ -108,7 +108,7 @@
         "spurious_route_rate": 0.6241,
         "edges": 194.3333,
         "routing_success": 0.75,
-        "build_seconds": 0.1068
+        "build_seconds": 0.1052
       },
       "dbscan_graph": {
         "f1": 0.1494,
@@ -118,7 +118,7 @@
         "spurious_route_rate": 0.8697,
         "edges": 7.0,
         "routing_success": 0.6146,
-        "build_seconds": 0.0214
+        "build_seconds": 0.0205
       },
       "spline_mapmatch": {
         "f1": 0.6755,
@@ -128,7 +128,7 @@
         "spurious_route_rate": 0.2882,
         "edges": 3170.6667,
         "routing_success": 0.9792,
-        "build_seconds": 0.0315
+        "build_seconds": 0.0282
       }
     },
     "6": {
@@ -140,7 +140,7 @@
         "spurious_route_rate": 0.9583,
         "edges": 2083.0,
         "routing_success": 1.0,
-        "build_seconds": 0.0186
+        "build_seconds": 0.0159
       },
       "kmeans_delaunay": {
         "f1": 0.5402,
@@ -150,7 +150,7 @@
         "spurious_route_rate": 0.5657,
         "edges": 193.0,
         "routing_success": 0.8229,
-        "build_seconds": 0.1097
+        "build_seconds": 0.0835
       },
       "dbscan_graph": {
         "f1": 0.2473,
@@ -160,7 +160,7 @@
         "spurious_route_rate": 0.6964,
         "edges": 8.0,
         "routing_success": 0.7292,
-        "build_seconds": 0.019
+        "build_seconds": 0.0176
       },
       "spline_mapmatch": {
         "f1": 0.6283,
@@ -170,7 +170,7 @@
         "spurious_route_rate": 0.4167,
         "edges": 3490.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.036
+        "build_seconds": 0.0305
       }
     },
     "8": {
@@ -182,7 +182,7 @@
         "spurious_route_rate": 0.9271,
         "edges": 2049.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0177
+        "build_seconds": 0.0154
       },
       "kmeans_delaunay": {
         "f1": 0.4514,
@@ -192,7 +192,7 @@
         "spurious_route_rate": 0.8077,
         "edges": 195.0,
         "routing_success": 0.8125,
-        "build_seconds": 0.1104
+        "build_seconds": 0.0861
       },
       "dbscan_graph": {
         "f1": 0.282,
@@ -202,7 +202,7 @@
         "spurious_route_rate": 0.6483,
         "edges": 19.3333,
         "routing_success": 0.9166,
-        "build_seconds": 0.0216
+        "build_seconds": 0.0168
       },
       "spline_mapmatch": {
         "f1": 0.5828,
@@ -212,7 +212,7 @@
         "spurious_route_rate": 0.6076,
         "edges": 3609.3333,
         "routing_success": 0.9167,
-        "build_seconds": 0.0381
+        "build_seconds": 0.0325
       }
     },
     "10": {
@@ -224,7 +224,7 @@
         "spurious_route_rate": 0.9167,
         "edges": 1976.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0164
+        "build_seconds": 0.0154
       },
       "kmeans_delaunay": {
         "f1": 0.4189,
@@ -234,7 +234,7 @@
         "spurious_route_rate": 0.7465,
         "edges": 192.6667,
         "routing_success": 0.8229,
-        "build_seconds": 0.107
+        "build_seconds": 0.0838
       },
       "dbscan_graph": {
         "f1": 0.267,
@@ -244,7 +244,7 @@
         "spurious_route_rate": 0.7977,
         "edges": 34.0,
         "routing_success": 0.9271,
-        "build_seconds": 0.0209
+        "build_seconds": 0.0163
       },
       "spline_mapmatch": {
         "f1": 0.5461,
@@ -254,7 +254,7 @@
         "spurious_route_rate": 0.6354,
         "edges": 3663.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0461
+        "build_seconds": 0.034
       }
     },
     "12": {
@@ -266,7 +266,7 @@
         "spurious_route_rate": 0.8854,
         "edges": 1868.3333,
         "routing_success": 1.0,
-        "build_seconds": 0.0307
+        "build_seconds": 0.0146
       },
       "kmeans_delaunay": {
         "f1": 0.3994,
@@ -276,7 +276,7 @@
         "spurious_route_rate": 0.797,
         "edges": 195.0,
         "routing_success": 0.875,
-        "build_seconds": 0.1614
+        "build_seconds": 0.0953
       },
       "dbscan_graph": {
         "f1": 0.3285,
@@ -286,7 +286,7 @@
         "spurious_route_rate": 0.8254,
         "edges": 51.0,
         "routing_success": 0.9375,
-        "build_seconds": 0.0262
+        "build_seconds": 0.0216
       },
       "spline_mapmatch": {
         "f1": 0.5117,
@@ -296,7 +296,7 @@
         "spurious_route_rate": 0.7396,
         "edges": 3687.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0546
+        "build_seconds": 0.044
       }
     }
   },
@@ -310,7 +310,7 @@
         "spurious_route_rate": 0.9479,
         "edges": 1807.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0225
+        "build_seconds": 0.0192
       },
       "kmeans_delaunay": {
         "f1": 0.5974,
@@ -320,7 +320,7 @@
         "spurious_route_rate": 0.3287,
         "edges": 194.6667,
         "routing_success": 0.8542,
-        "build_seconds": 0.125
+        "build_seconds": 0.0848
       },
       "dbscan_graph": {
         "f1": 0.186,
@@ -330,7 +330,7 @@
         "spurious_route_rate": 0.8667,
         "edges": 5.6667,
         "routing_success": 0.625,
-        "build_seconds": 0.0249
+        "build_seconds": 0.018
       },
       "spline_mapmatch": {
         "f1": 0.6952,
@@ -340,7 +340,7 @@
         "spurious_route_rate": 0.3334,
         "edges": 2821.3333,
         "routing_success": 1.0,
-        "build_seconds": 0.0326
+        "build_seconds": 0.0237
       }
     },
     "1.0": {
@@ -352,7 +352,7 @@
         "spurious_route_rate": 0.9573,
         "edges": 1797.3333,
         "routing_success": 0.9896,
-        "build_seconds": 0.0222
+        "build_seconds": 0.0177
       },
       "kmeans_delaunay": {
         "f1": 0.6136,
@@ -362,7 +362,7 @@
         "spurious_route_rate": 0.424,
         "edges": 195.3333,
         "routing_success": 0.8542,
-        "build_seconds": 0.142
+        "build_seconds": 0.0846
       },
       "dbscan_graph": {
         "f1": 0.1668,
@@ -372,7 +372,7 @@
         "spurious_route_rate": 0.9708,
         "edges": 6.0,
         "routing_success": 0.6979,
-        "build_seconds": 0.0245
+        "build_seconds": 0.0191
       },
       "spline_mapmatch": {
         "f1": 0.7001,
@@ -382,7 +382,7 @@
         "spurious_route_rate": 0.2812,
         "edges": 2815.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0388
+        "build_seconds": 0.024
       }
     },
     "2.5": {
@@ -394,7 +394,7 @@
         "spurious_route_rate": 0.9479,
         "edges": 1811.3333,
         "routing_success": 1.0,
-        "build_seconds": 0.0233
+        "build_seconds": 0.0175
       },
       "kmeans_delaunay": {
         "f1": 0.6208,
@@ -404,7 +404,7 @@
         "spurious_route_rate": 0.402,
         "edges": 194.6667,
         "routing_success": 0.8542,
-        "build_seconds": 0.1377
+        "build_seconds": 0.1098
       },
       "dbscan_graph": {
         "f1": 0.1911,
@@ -414,7 +414,7 @@
         "spurious_route_rate": 0.9564,
         "edges": 6.6667,
         "routing_success": 0.6875,
-        "build_seconds": 0.0282
+        "build_seconds": 0.0199
       },
       "spline_mapmatch": {
         "f1": 0.6817,
@@ -424,7 +424,7 @@
         "spurious_route_rate": 0.3333,
         "edges": 2846.0,
         "routing_success": 1.0,
-        "build_seconds": 0.0362
+        "build_seconds": 0.0305
       }
     }
   },
@@ -438,7 +438,7 @@
         "spurious_route_rate": 0.9677,
         "edges": 1854.3333,
         "routing_success": 0.9792,
-        "build_seconds": 0.0231
+        "build_seconds": 0.0153
       },
       "kmeans_delaunay": {
         "f1": 0.6275,
@@ -448,7 +448,7 @@
         "spurious_route_rate": 0.4413,
         "edges": 195.3333,
         "routing_success": 0.8958,
-        "build_seconds": 0.1305
+        "build_seconds": 0.0903
       },
       "dbscan_graph": {
         "f1": 0.167,
@@ -458,7 +458,7 @@
         "spurious_route_rate": 0.9855,
         "edges": 4.3333,
         "routing_success": 0.5209,
-        "build_seconds": 0.0328
+        "build_seconds": 0.0205
       },
       "spline_mapmatch": {
         "f1": 0.7022,
@@ -468,7 +468,7 @@
         "spurious_route_rate": 0.2708,
         "edges": 2887.0,
         "routing_success": 1.0,
-        "build_seconds": 0.0373
+        "build_seconds": 0.0251
       }
     },
     "0.05": {
@@ -480,7 +480,7 @@
         "spurious_route_rate": 0.9375,
         "edges": 1779.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0293
+        "build_seconds": 0.0149
       },
       "kmeans_delaunay": {
         "f1": 0.6099,
@@ -490,7 +490,7 @@
         "spurious_route_rate": 0.3928,
         "edges": 194.6667,
         "routing_success": 0.875,
-        "build_seconds": 0.1448
+        "build_seconds": 0.0852
       },
       "dbscan_graph": {
         "f1": 0.1661,
@@ -500,7 +500,7 @@
         "spurious_route_rate": 0.8534,
         "edges": 4.6667,
         "routing_success": 0.5313,
-        "build_seconds": 0.0411
+        "build_seconds": 0.0175
       },
       "spline_mapmatch": {
         "f1": 0.7008,
@@ -510,7 +510,7 @@
         "spurious_route_rate": 0.3229,
         "edges": 2756.3333,
         "routing_success": 1.0,
-        "build_seconds": 0.0466
+        "build_seconds": 0.0235
       }
     },
     "0.12": {
@@ -522,7 +522,7 @@
         "spurious_route_rate": 1.0,
         "edges": 1664.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0239
+        "build_seconds": 0.0144
       },
       "kmeans_delaunay": {
         "f1": 0.5818,
@@ -532,7 +532,7 @@
         "spurious_route_rate": 0.4249,
         "edges": 195.0,
         "routing_success": 0.8542,
-        "build_seconds": 0.1229
+        "build_seconds": 0.0917
       },
       "dbscan_graph": {
         "f1": 0.197,
@@ -542,7 +542,7 @@
         "spurious_route_rate": 0.9583,
         "edges": 5.6667,
         "routing_success": 0.5,
-        "build_seconds": 0.0212
+        "build_seconds": 0.0173
       },
       "spline_mapmatch": {
         "f1": 0.7039,
@@ -552,7 +552,7 @@
         "spurious_route_rate": 0.2604,
         "edges": 2634.6667,
         "routing_success": 1.0,
-        "build_seconds": 0.0331
+        "build_seconds": 0.0234
       }
     }
   },

@@ -84,6 +84,51 @@ class InternalBackend extends DispatchBackend {
     };
   }
 
+  async stats() {
+    const db = this.registry.db;
+    // Total dispatches (assigned + outcomes)
+    const total = db.prepare('SELECT COUNT(*) as c FROM dispatcher_responders').get().c;
+    const successful = db.prepare("SELECT COUNT(*) as c FROM dispatcher_outcomes WHERE outcome = 'confirmed'").get().c;
+    const failed = db.prepare("SELECT COUNT(*) as c FROM dispatcher_outcomes WHERE outcome = 'failed'").get().c;
+    const active = total - successful - failed;
+    const today = new Date().toISOString().split('T')[0];
+    const todayStarted = db.prepare("SELECT COUNT(*) as c FROM dispatcher_responders WHERE at LIKE ?").get(`${today}%`).c;
+    const pendingReview = failed; // failed outcomes need review
+    const avgResponseTime = 15; // placeholder
+
+    return {
+      total,
+      successful,
+      failed,
+      active,
+      todayStarted,
+      pendingReview,
+      successRate: total > 0 ? Math.round((successful / total) * 100) : 0,
+      avgResponseTime,
+    };
+  }
+
+  async recent(limit = 10) {
+    const db = this.registry.db;
+    const rows = db.prepare(`
+      SELECT r.dispatch_id, r.code, r.responder, r.at as assigned_at,
+             o.outcome, o.at as outcome_at
+      FROM dispatcher_responders r
+      LEFT JOIN dispatcher_outcomes o ON r.dispatch_id = o.dispatch_id
+      ORDER BY r.at DESC
+      LIMIT ?
+    `).all(limit);
+
+    return rows.map(row => ({
+      dispatch_id: row.dispatch_id,
+      code: row.code,
+      responder: row.responder,
+      assigned_at: row.assigned_at,
+      outcome: row.outcome,
+      outcome_at: row.outcome_at,
+    }));
+  }
+
   async lookup(code, responderLocation, profile = 'foot') {
     const s = this.registry.getByCode(code);
     if (!s) {
@@ -142,7 +187,13 @@ class InternalBackend extends DispatchBackend {
 
   async dispatch(code, context = {}) {
     const id = crypto.randomUUID();
-    this.responders.push({ dispatch_id: id, code, at: new Date().toISOString(), ...context });
+    const at = new Date().toISOString();
+    this.responders.push({ dispatch_id: id, code, at, ...context });
+    // Persist to database
+    this.registry.db.prepare(`
+      INSERT INTO dispatcher_responders (dispatch_id, code, responder, at)
+      VALUES (?, ?, ?, ?)
+    `).run(id, code, context.responder ?? null, at);
     return { dispatch_id: id, code, status: 'assigned', responder: context.responder ?? null };
   }
 
@@ -154,6 +205,11 @@ class InternalBackend extends DispatchBackend {
   async outcome(dispatchId, result = {}) {
     const rec = { dispatch_id: dispatchId, ...result, at: new Date().toISOString() };
     this.outcomes.push(rec);
+    // Persist to database
+    this.registry.db.prepare(`
+      INSERT INTO dispatcher_outcomes (dispatch_id, outcome, structure_id, actor, at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(dispatchId, result.outcome ?? 'confirmed', result.structure_id ?? null, result.actor ?? `dispatch:${dispatchId.slice(0, 8)}`, rec.at);
 
     if (result.outcome === 'failed') {
       this.registry.recordVerificationEvent({

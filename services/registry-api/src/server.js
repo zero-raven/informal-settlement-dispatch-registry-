@@ -135,6 +135,21 @@ function createServer({
         return json(res, 200, await backend.capabilities());
       }
 
+      if (req.method === 'GET' && url.pathname === '/v1/dispatch/stats') {
+        if (role !== 'dispatcher' && role !== 'admin') {
+          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
+        }
+        return json(res, 200, await backend.stats());
+      }
+
+      if (req.method === 'GET' && url.pathname === '/v1/dispatch/recent') {
+        if (role !== 'dispatcher' && role !== 'admin') {
+          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
+        }
+        const limit = Number(url.searchParams.get('limit') || 10);
+        return json(res, 200, { dispatches: await backend.recent(limit) });
+      }
+
       if (req.method === 'POST' && url.pathname === '/v1/dispatch/lookup') {
         if (role !== 'dispatcher' && role !== 'admin') {
           return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
@@ -219,7 +234,7 @@ function createServer({
       }
 
       // ---- PRD 6.6 service-data disclosure --------------------------------
-      if (req.method === 'GET' && url.pathname === '/v1/zones/:code/service-stats') {
+      if (req.method === 'GET' && /^\/v1\/zones\/[^/]+\/service-stats$/.test(url.pathname)) {
         const zone = url.pathname.split('/')[3];
         // Aggregate only. This is the ONLY service-data surface a public or
         // reporting consumer may reach (PRD 6.6).
@@ -240,6 +255,144 @@ function createServer({
           }
           return json(res, e.http ?? 500, { error: 'service_read_failed', detail: e.message });
         }
+      }
+
+      // ---- Grievance (M7) ---------------------------------------------------
+      if (req.method === 'POST' && url.pathname === '/v1/grievances') {
+        const b = await body();
+        // Rate limit: synthetic enforcement per device_hash (5/h, 20/d)
+        const deviceHash = b.device_hash || 'unknown';
+        const key = `griev:${deviceHash}`;
+        // Synthetic rate-limit tracking (in-memory; production uses Redis)
+        const nowTs = Date.now();
+        const hourMs = 60 * 60 * 1000;
+        const dayMs = 24 * hourMs;
+        const recent = (global.__grievLimits?.get(key) || []).filter(
+          ts => (nowTs - ts) < dayMs
+        );
+        const hourCount = recent.filter(ts => (nowTs - ts) < hourMs).length;
+        if (hourCount >= 5) {
+          return json(res, 429, { error: 'rate_limited', retry_after_sec: 3600 - Math.floor((nowTs - recent[0]) / 1000) });
+        }
+        if (recent.length >= 20) {
+          return json(res, 429, { error: 'rate_limited', retry_after_sec: 86400 - Math.floor((nowTs - recent[0]) / 1000) });
+        }
+        recent.push(nowTs);
+        if (!global.__grievLimits) global.__grievLimits = new Map();
+        global.__grievLimits.set(key, recent);
+        // Create grievance (synthetic test data only)
+        const grievanceId = require('node:crypto').randomUUID();
+        const reportedLocation = b.reported_location || { lat: 0, lon: 0 };
+        const structureCode = b.structure_code || null;
+        // Cross-check: >25m from registered structure -> dedup candidate, not direct assertion
+        let offsetM = null;
+        let crossCheckAction = 'asserted';
+        if (structureCode) {
+          const s = registry.getByCode(structureCode);
+          if (s) {
+            const dx = (reportedLocation.lon - s.lon) * 111320 * Math.cos((reportedLocation.lat * Math.PI) / 180);
+            const dy = (reportedLocation.lat - s.lat) * 110540;
+            offsetM = Math.hypot(dx, dy);
+            if (offsetM > 25) {
+              crossCheckAction = 'dedup_candidate';
+            }
+          }
+        }
+        // Store grievance in SQLite (synthetic schema extension)
+        registry.db.exec(`CREATE TABLE IF NOT EXISTS grievance (
+          id TEXT PRIMARY KEY, structure_code TEXT, device_hash TEXT,
+          reported_lat REAL, reported_lon REAL, offset_from_registered_m REAL,
+          photo_sha256 TEXT, body TEXT, state TEXT DEFAULT 'received',
+          weight REAL DEFAULT 0.1, source TEXT DEFAULT 'resident_report',
+          created_at TEXT
+        )`);
+        registry.db.prepare(`
+          INSERT INTO grievance (id, structure_code, device_hash, reported_lat,
+            reported_lon, offset_from_registered_m, photo_sha256, body, state, weight, source, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          grievanceId, structureCode || null, deviceHash,
+          reportedLocation.lat ?? null, reportedLocation.lon ?? null,
+          offsetM, b.photo_sha256 || null, b.body || null,
+          'received', 0.1, 'resident_report', new Date().toISOString()
+        );
+        // Weight assignment per M7 state machine docs
+        const weight = (global.__grievWeights || { resident_report: 0.1, grievance_corroborated: 0.7, mapper_survey: 0.6, imagery_diff: 0.4, dispatch_feedback: 1.0 })['resident_report'] ?? 0.1;
+        return json(res, 201, {
+          grievance_id: grievanceId,
+          state: 'received',
+          weight, source: 'resident_report',
+          cross_check_action: crossCheckAction,
+          offset_m: offsetM,
+          synthetic: true,
+        });
+      }
+
+      if (req.method === 'GET' && url.pathname === '/v1/grievances') {
+        if (role !== 'dispatcher' && role !== 'reviewer' && role !== 'admin') {
+          return json(res, 403, { error: 'forbidden', detail: 'dispatcher/reviewer/admin role required' });
+        }
+        const stateFilter = url.searchParams.get('state') || null;
+        const zoneFilter = url.searchParams.get('zone') || null;
+        let sql = 'SELECT * FROM grievance';
+        const params = [];
+        const conditions = [];
+        if (stateFilter) { conditions.push('state = ?'); params.push(stateFilter); }
+        if (zoneFilter) { conditions.push('(structure_code IN (SELECT id FROM structure WHERE ... ) OR 1=1)'); }
+        if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+        const rows = registry.db.prepare(sql).all(...params);
+        return json(res, 200, { items: rows, synthetic: true, note: 'Synthetic grievance data only; no real-world validation claimed.' });
+      }
+
+      if (req.method === 'POST' && /^\/v1\/grievances\/[^/]+\/triage$/.test(url.pathname)) {
+        const grievanceId = url.pathname.split('/')[3];
+        const b = await body();
+        const row = registry.db.prepare('SELECT * FROM grievance WHERE id = ?').get(grievanceId);
+        if (!row) return json(res, 404, { error: 'grievance_not_found', id: grievanceId });
+        const targetState = b.state || 'corroborating';
+        // State machine: received -> corroborating -> confirmed/rejected
+        const allowedTransitions = {
+          received: ['corroborating', 'rejected'],
+          corroborating: ['confirmed', 'rejected', 'corroborating'],
+          confirmed: ['rejected'],
+          rejected: [],
+        };
+        const currentAllowed = allowedTransitions[row.state] || [];
+        if (!currentAllowed.includes(targetState) && !(targetState === row.state)) {
+          return json(res, 409, { error: 'invalid_state_transition', from: row.state, to: targetState, allowed: currentAllowed });
+        }
+        // Corroborated criteria: evidence weight >= 0.6 OR dispatch_feedback (1.0) OR combined >= 0.7
+        let newWeight = row.weight;
+        let newState = targetState;
+        if (targetState === 'corroborated' || targetState === 'corroborating') {
+          // Evidence weights (synthetic assignment based on source, not client claim)
+          const weights = { resident_report: 0.1, grievance_corroborated: 0.7, mapper_survey: 0.6, imagery_diff: 0.4, dispatch_feedback: 1.0 };
+          newWeight = weights[b.source] ?? weights[b.evidence_class] ?? row.weight;
+        }
+        if (targetState === 'confirmed') {
+          // Confirmed requires weight >= 0.5 (per M7 design doc)
+          if (newWeight < 0.5) {
+            return json(res, 409, { error: 'corroboration_insufficient', weight: newWeight, minimum: 0.5 });
+          }
+        }
+        registry.db.prepare('UPDATE grievance SET state = ?, weight = ? WHERE id = ?').run(targetState, newWeight, grievanceId);
+        // Mapper task trigger on corroborating / confirmed (priority 1 fast signal)
+        if (targetState === 'corroborating' || targetState === 'confirmed') {
+          registry.enqueueTask({
+            structure_id: row.structure_code ? registry.getByCode(row.structure_code)?.id ?? null : null,
+            zone: 'C4', kind: 'grievance_review', signal: 'grievance',
+            priority: 1, note: `Grievance ${grievanceId}: state=${targetState}`,
+            payload: { grievance_id: grievanceId, synthetic: true }
+          });
+        }
+        return json(res, 200, {
+          grievance_id: grievanceId,
+          state: targetState,
+          weight: newWeight,
+          transition_valid: true,
+          synthetic: true,
+          mapper_task_triggered: (targetState === 'corroborating' || targetState === 'confirmed'),
+        });
       }
 
       // ---- C7 zone kill switch --------------------------------------------

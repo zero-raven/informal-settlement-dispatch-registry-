@@ -13,6 +13,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
@@ -116,6 +117,7 @@ class LocalStore {
   final String siteId;
 
   static Future<LocalStore> open() async {
+    databaseFactory = databaseFactoryFfi;
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, 'mapper_cache.sqlite');
 

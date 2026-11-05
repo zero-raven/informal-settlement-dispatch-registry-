@@ -1,8 +1,100 @@
+# Dart/Flutter
+.dart_tool/
+build/
+*.dart_tool/
+.packages
+.pub-cache/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter specific
+*.flutter
+flutter_*.log
+*.flutter.lock
+
+# Build outputs
+apps/*/build/
+apps/*/linux/build/
+apps/*/windows/build/
+apps/*/macos/build/
+apps/*/web/build/
+
+# Android
+*.apk
+*.aab
+local.properties
+gradle.properties
+apps/*/android/.gradle/
+apps/*/android/build/
+apps/*/android/app/build/
+
+# iOS
+apps/*/ios/.generated/
+apps/*/ios/Pods/
+apps/*/ios/Podfile.lock
+
+# Web
+apps/*/web/.dart_tool/
+apps/*/web/build/
+
+# Generated files
+apps/*/lib/generated_*.dart
+apps/*/linux/flutter/generated_*
+
+# Cache
+apps/*/.dart_tool/
+apps/*/.flutter-plugins
+apps/*/.flutter-plugins-dependencies
+apps/*/.metadata
+apps/*/pubspec.lock
+
+# Environment
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+*.lcov
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Python
 .venv-spike/
-.cache/
+.pyc
+__pycache__/
 .pgroot/
+.pytest_cache/
+
+# Spike data
 spike/data/
 spike/__pycache__/
-apps/mapper/build/
-apps/mapper/.dart_tool/
-*.pyc
+spike/*.json
+
+# Node
+node_modules/
+package-lock.json
+
+# Docker
+docker-compose.override.yml
+
+# Services
+services/*/node_modules/
+services/*/package-lock.json
+services/registry-api/*.log

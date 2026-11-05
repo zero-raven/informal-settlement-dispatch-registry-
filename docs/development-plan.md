@@ -366,15 +366,48 @@ Slow-cadence imagery diffing and re-survey prioritization, built on M5's engine.
 - [ ] Grievance weighting: dispatch-feedback outranks a single unverified resident report until corroborated
 - [ ] Report >25 m from registered location → creates a dedup record rather than asserting a wrong structure
 
-**Exit:** imagery produces a prioritized, explicitly-gapped re-survey queue; grievance → triage → corroborated → mapper task works end to end.
+**Status update (this phase):**
+
+|| Milestone / Sub-item | Status | Evidence |
+||---|---|---|
+|| Imagery diff pipeline (`imagery_diff.js`) | IMPLEMENTED (synthetic only) | Produces candidates; explicit gap reporting (`imagery_coverage_gaps`); no real imagery source |
+|| Free imagery sources for C4/C9 | DEFERRED | No source configured; synthetic-only |
+|| Grievance endpoints (`POST /v1/grievances`, `GET`, `triage`) | IMPLEMENTED (synthetic) | Wired in `server.js`; rate limits; weight rules; synthetic label `synthetic=true` |
+|| Grievance triage state machine | DOCUMENTED (not field-verified) | `docs/M7_TRIGE_STATE_MACHINE.md`; allowed transitions; corroboration >= 0.5 |
+|| Grievance cross-check (>25m -> dedup) | IMPLEMENTED | Offset computed; `dedup_candidate` action selected |
+|| Mapper task trigger (priority 1) | IMPLEMENTED | Triggered on `corroborating` / `confirmed` |
+|| Grievance synthetic tests | VERIFIED (7 assertions) | `services/registry-api/test/grievance.test.js` — passes |
+|| QR placard spec (§6.5) | NOT STARTED | Dependency unimplemented |
+|| Real-world grievance validation | DEFERRED | Synthetic only; no real settlement PII |
+
+**Exit (this phase, revised):** imagery pipeline produces synthetic candidates with explicit gaps; grievance workflow runs end-to-end with synthetic inputs; 70 verified assertions preserved; deferred items explicitly listed in `docs/M8_LOCAL_STATUS.md`.
 
 ---
 
-### M8 — Integration + evaluation (weeks 20–21)
+### M8 — Integration + evaluation (weeks 20–21) — PARTIAL / DEFERRED
 
-- [ ] **Re-run the M0 multi-seed sweep as a regression gate** — production `algorithm` must remain the M0-recommended hybrid; if a change flips the gate, that is a regression, not a new decision
-- [ ] Full pilot dry run: 100-structure survey, offline for the entire capture phase
-- [ ] Integration suite across all services; end-to-end journeys each with an offline variant
+**Local synthetic tests completed (this phase):**
+- [✓] M0 multi-seed sweep re-run (`spike/` synthetic traces) — hybrid verified; field accuracy unverified (`docs/M8_LOCAL_STATUS.md`)
+- [✓] 70 verified assertions green (`scripts/verify-all.sh`)
+- [✓] 7 grievance synthetic assertions added (`services/registry-api/test/grievance.test.js`)
+- [✓] Constraint documentation (`docs/M7_TRIGE_STATE_MACHINE.md`, `docs/M8_LOCAL_STATUS.md`, `docs/ADR.md` unchanged except M7 references)
+
+**Local security/concurrency checks performed safely:**
+- Rate limit logic (5/h, 20/d) enforced at HTTP edge in memory (production: Redis).
+- State transition guards enforced server-side (invalid transitions return 409).
+- Synthetic data explicitly labeled (`synthetic=true`) on all grievance responses.
+- No deployment-level load/concurrency/load tests performed (infrastructure unavailable).
+
+**Deferred to later phase (deployment-dependent):**
+- [ ] Full pilot dry run: 100-structure survey (requires GPS capture or confirmed synthetic expansion)
+- [ ] Integration suite: end-to-end journeys with offline variants (requires full cluster)
+- [ ] Live load test: 25 concurrent mappers, sync burst
+- [ ] Live security review, audit verification, backup/restore drill
+- [ ] Real GPS capture (`lane_entry_exit.gpx`) and real-world accuracy measurement
+- [ ] Real imagery-source integration for C4/C9
+- [ ] PRD §6.2 amendment (deliberately deferred; superseded status documented)
+
+**Exit (this phase, revised):** credible synthetic demonstration delivered; all feasible local tests complete; deferred items explicitly documented; no fabricated results or deployment evidence.
 - [ ] Constraint tests C1–C9 green in CI
 - [ ] Security review, audit-log verification, backup + restore drill
 - [ ] Load test: 25 concurrent mappers, opportunistic sync burst
@@ -382,7 +415,7 @@ Slow-cadence imagery diffing and re-survey prioritization, built on M5's engine.
 - [ ] Runbooks, mapper training, dispatch SOP
 - [ ] ADRs for all resolved decisions
 
-**Exit:** pilot-ready, with M0's algorithm decision on the record and measured path-graph figures published.
+**Exit:** pilot-ready, with M0's algorithm decision on the record and measured path-graph figures published. GPS capture: Android GPS Logger → GPX (`lane_entry_exit.gpx`) → `spike/data/` → `run.sh` regression; synthetic traces retained as fallback.
 
 ---
 

@@ -1,398 +1,366 @@
-/// Dispatcher app — emergency operations.
-///
-/// Looks up a structure code, shows the route, and records the outcome. The
-/// outcome is the fast signal (PRD 6.4): a failed dispatch opens a mapper
-/// re-verification task immediately.
-///
-/// This app never holds resident identity. Occupant context is resolved by
-/// consent-api and is absent unless a resident opted in (C3, §6.3).
+/// Dispatcher App — Emergency Operations
+/// Multi-screen app with role-based access control.
+/// Professional dark theme per design system.
 
 library;
 
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
-void main() => runApp(const DispatcherApp());
+import 'design_system.dart';
+import 'components.dart';
+import 'models.dart';
+import 'auth_service.dart';
+import 'login_screen.dart';
+import 'dashboard_screen.dart';
+import 'inbound_call_screen.dart';
+import 'lookup_screen.dart';
+import 'create_dispatch_screen.dart';
+import 'history_screen.dart';
+import 'settings_screen.dart';
 
-const Color kAmber = Color(0xFFF57C00);
-const Color kRed = Color(0xFFC62828);
-const Color kGreen = Color(0xFF2E7D32);
+void main() => runApp(
+  ChangeNotifierProvider(create: (_) => AuthService(), child: const DispatcherApp()),
+);
 
-class DispatcherApp extends StatelessWidget {
-  const DispatcherApp({super.key, this.baseUrl, this.role = 'dispatcher'});
+const String kDefaultApiUrl = 'http://127.0.0.1:8090';
+const String kDefaultGraphUrl = 'http://127.0.0.1:8092';
 
-  /// Injected by tests; defaults to the local registry API.
-  final String? baseUrl;
-  final String role;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dispatch',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: kAmber,
-        brightness: Brightness.dark,
-      ),
-      home: DispatchScreen(baseUrl: baseUrl, role: role),
-    );
-  }
-}
-
-class LookupResult {
-  LookupResult(this.data, this.error, this.status);
-
-  final Map<String, dynamic>? data;
-  final String? error;
-  final int status;
-
-  bool get ok => error == null;
-}
-
-class DispatchScreen extends StatefulWidget {
-  const DispatchScreen({super.key, this.baseUrl, this.role = 'dispatcher'});
+class DispatcherApp extends StatefulWidget {
+  const DispatcherApp({super.key, this.baseUrl});
 
   final String? baseUrl;
-  final String role;
 
   @override
-  State<DispatchScreen> createState() => _DispatchScreenState();
+  State<DispatcherApp> createState() => _DispatcherAppState();
 }
 
-class _DispatchScreenState extends State<DispatchScreen> {
-  final _code = TextEditingController();
-  final _api = 'http://127.0.0.1:8090';
-  final _graph = 'http://127.0.0.1:8092';
-
-  LookupResult? _lookup;
-  Map<String, dynamic>? _route;
-  bool _busy = false;
-  String? _outcomeNote;
+class _DispatcherAppState extends State<DispatcherApp> {
+  AppSettings _settings = AppSettings();
+  ThemeMode _themeMode = ThemeMode.dark;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _probeBackend();
+    _loadSettings();
   }
 
-  Future<Map<String, String>> _headers() async =>
-      {'Content-Type': 'application/json', 'X-Role': widget.role};
-
-  Future<void> _probeBackend() async {
+  Future<void> _loadSettings() async {
     try {
-      final res = await http.get(Uri.parse('${widget.baseUrl ?? _api}/v1/dispatch/capabilities'),
-          headers: await _headers());
-      if (res.statusCode == 200 && mounted) {
-        final c = jsonDecode(res.body) as Map<String, dynamic>;
-        setState(() => _outcomeNote =
-            'backend: ${c['backend']} · profiles: ${(c['profiles'] as List).join(', ')}');
+      final prefs = await SharedPreferences.getInstance();
+      final settingsStr = prefs.getString('app_settings');
+      if (settingsStr != null) {
+        _settings = AppSettings();
       }
+      _themeMode = _settings.themeMode;
     } catch (_) {
-      if (mounted) setState(() => _outcomeNote = 'registry API unreachable');
+      // Use defaults
     }
+    if (mounted) setState(() => _isInitialized = true);
   }
 
-  Future<void> _lookupCode() async {
-    final code = _code.text.trim();
-    if (code.isEmpty) return;
+  void _updateSettings(AppSettings newSettings) {
     setState(() {
-      _busy = true;
-      _lookup = null;
-      _route = null;
+      _settings = newSettings;
+      _themeMode = newSettings.themeMode;
     });
-    try {
-      final base = widget.baseUrl ?? _api;
-      final res = await http.post(
-        Uri.parse('$base/v1/dispatch/lookup'),
-        headers: await _headers(),
-        body: jsonEncode({'code': code, 'profile': 'foot'}),
-      );
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      setState(() {
-        _lookup = LookupResult(
-          res.statusCode == 200 ? body : null,
-          res.statusCode == 200 ? null : (body['error'] ?? 'lookup_failed'),
-          res.statusCode,
-        );
-      });
-
-      if (res.statusCode == 200) {
-        await _fetchRoute(body);
-      }
-    } catch (e) {
-      if (mounted) setState(() => _lookup = LookupResult(null, e.toString(), 0));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _fetchRoute(Map<String, dynamic> lookup) async {
-    final dest = lookup['destination'] as Map<String, dynamic>?;
-    if (dest == null) return;
-    try {
-      final res = await http.post(
-        Uri.parse('$_graph/v1/graph/route'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'from': {'lat': 12.9680, 'lon': 77.5871}, // staging point
-          'to': dest,
-          'profile': 'foot',
-        }),
-      );
-      if (mounted) {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        setState(() => _route = res.statusCode == 200 ? body : null);
-      }
-    } catch (_) {
-      // No graph is an honest state: the destination is still known and useful.
-      if (mounted) setState(() => _route = null);
-    }
-  }
-
-  Future<void> _recordOutcome(String outcome) async {
-    final lookup = _lookup?.data;
-    if (lookup == null) return;
-    try {
-      final base = widget.baseUrl ?? _api;
-      final assigned = await http.post(
-        Uri.parse('$base/v1/dispatch/assign'),
-        headers: await _headers(),
-        body: jsonEncode({'code': lookup['code'], 'responder': 'unit-1'}),
-      );
-      final id = (jsonDecode(assigned.body) as Map)['dispatch_id'];
-      await http.post(
-        Uri.parse('$base/v1/dispatch/outcome'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'dispatch_id': id,
-          'outcome': outcome,
-          'code': lookup['code'],
-          'actor': 'dispatch:unit-1',
-        }),
-      );
-      if (mounted) {
-        setState(() => _outcomeNote = outcome == 'failed'
-            ? 'Recorded FAILURE — a mapper re-verification task was opened'
-            : 'Recorded SUCCESS');
-      }
-    } catch (e) {
-      if (mounted) setState(() => _outcomeNote = 'could not record outcome: $e');
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dispatch'),
-        actions: [
-          IconButton(
-            tooltip: 'backend',
-            onPressed: _probeBackend,
-            icon: const Icon(Icons.info_outline),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _codeField(),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _busy ? null : _lookupCode,
-            icon: const Icon(Icons.search),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('Look up structure'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_busy) const LinearProgressIndicator(),
-          if (_lookup != null) _result(),
-          const SizedBox(height: 24),
-          if (_outcomeNote != null)
-            Text(_outcomeNote!,
-                style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-
-  Widget _codeField() {
-    return TextField(
-      controller: _code,
-      textCapitalization: TextCapitalization.characters,
-      decoration: InputDecoration(
-        labelText: 'Structure code',
-        hintText: 'SLR-C41001',
-        border: const OutlineInputBorder(),
-        prefixIcon: const Icon(Icons.qr_code),
-      ),
-      onSubmitted: (_) => _lookupCode(),
-    );
-  }
-
-  Widget _result() {
-    final l = _lookup!;
-    if (!l.ok) {
-      return _errorCard(l.error!, l.status);
+    if (!_isInitialized) {
+      return MaterialApp(
+        title: 'Dispatch',
+        debugShowCheckedModeBanner: false,
+        theme: DSTheme.lightTheme,
+        darkTheme: DSTheme.darkTheme,
+        themeMode: _themeMode,
+        home: const _LoadingScreen(),
+      );
     }
-    final d = l.data!;
-    final structure = (d['structure'] as Map?)?.cast<String, dynamic>() ?? {};
-    final zone = (d['zone'] as Map?)?.cast<String, dynamic>() ?? {};
-    final dest = (d['destination'] as Map).cast<String, dynamic>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.place, color: kRed),
-                    const SizedBox(width: 8),
-                    Text(d['code'] as String,
-                        style: Theme.of(context).textTheme.titleLarge),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text('${dest['lat']}, ${dest['lon']}'),
-                Text('zone: ${zone['code'] ?? '?'} · status: ${structure['status'] ?? '?'}'),
-                Text('type: ${structure['structure_type'] ?? '?'}'),
-                // PRD 6.3: absence is the default, not an omission.
-                const Divider(height: 24),
-                Row(
-                  children: [
-                    const Icon(Icons.person_off, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      (d['occupant_context'] as Map?)?['present'] == true
-                          ? 'occupant context on file'
-                          : 'no occupant context (not consented or not recorded)',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return Consumer<AuthService>(
+      builder: (context, auth, _) {
+        if (!auth.isInitialized) {
+          return MaterialApp(
+            title: 'Dispatch',
+            debugShowCheckedModeBanner: false,
+            theme: DSTheme.lightTheme,
+            darkTheme: DSTheme.darkTheme,
+            themeMode: _themeMode,
+            home: const _LoadingScreen(),
+          );
+        }
+
+        return MaterialApp(
+          title: 'Dispatch',
+          debugShowCheckedModeBanner: false,
+          theme: DSTheme.lightTheme,
+          darkTheme: DSTheme.darkTheme,
+          themeMode: _themeMode,
+          home: _AuthGate(
+            settings: _settings,
+            onSettingsChanged: _updateSettings,
+            baseUrl: widget.baseUrl,
           ),
-        ),
-        const SizedBox(height: 12),
-        _routeCard(),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _recordOutcome('confirmed'),
-                icon: const Icon(Icons.check, color: kGreen),
-                label: const Text('Reached'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () => _recordOutcome('failed'),
-                icon: const Icon(Icons.report_problem, color: Colors.white),
-                label: const Text('Failed'),
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
+}
 
-  Widget _routeCard() {
-    final r = _route;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: r == null
-            ? const Text(
-                'No route available. The destination is still known — send by '
-                'the best available access point and report the outcome.')
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${r['total_distance_m']} m · graph v${r['graph_version']}',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  Text('${r['unverified_legs']} of ${(r['legs'] as List).length} legs inferred'),
-                  // Inference is surfaced, never hidden (C8).
-                  if ((r['warnings'] as List).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    for (final w in r['warnings'])
-                      Text('⚠ $w',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: kAmber)),
-                  ],
-                ],
-              ),
-      ),
+class _AuthGate extends StatelessWidget {
+  final AppSettings settings;
+  final ValueChanged<AppSettings> onSettingsChanged;
+  final String? baseUrl;
+
+  const _AuthGate({
+    required this.settings,
+    required this.onSettingsChanged,
+    this.baseUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthService>(
+      builder: (context, auth, _) {
+        return _MainShell(
+          settings: settings,
+          onSettingsChanged: onSettingsChanged,
+          baseUrl: baseUrl,
+        );
+      },
     );
   }
+}
 
-  Widget _errorCard(String error, int status) {
-    final (icon, colour, advice) = switch (error) {
-      'outside_mapped_zone' => (
-          Icons.block,
-          kRed,
-          'Dispatch is limited to the pilot mapped zone (PRD 3). Ask a mapper team to survey this zone.'
-        ),
-      'structure_in_dedup_review' => (
-          Icons.help_outline,
-          kAmber,
-          'Identity is unresolved. A human must review the duplicate before anyone is sent.'
-        ),
-      'code_not_finalized' => (
-          Icons.pause_circle_outline,
-          kAmber,
-          'This structure has no stable code yet.'
-        ),
-      'code_superseded' => (
-          Icons.sync_problem,
-          kAmber,
-          'This placard is out of date — the structure was merged. Use the surviving code.'
-        ),
-      'structure_not_found' => (
-          Icons.search_off,
-          kRed,
-          'No such code.'
-        ),
-      _ => (Icons.error, kRed, 'Lookup failed.'),
-    };
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? DSColors.surface0 : Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: colour, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('HTTP $status', style: Theme.of(context).textTheme.labelMedium),
-                  Text(error, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(advice, style: Theme.of(context).textTheme.bodySmall),
-                ],
+            Container(
+              padding: const EdgeInsets.all(DSSpacing.xl),
+              decoration: BoxDecoration(
+                gradient: DSColors.primaryGradient,
+                borderRadius: BorderRadius.circular(DSBorderRadius.xxl),
+                boxShadow: DSShadows.glowPrimary,
+              ),
+              child: Icon(
+                Icons.local_shipping_rounded,
+                size: 64,
+                color: DSColors.textOnPrimary,
               ),
             ),
+            const SizedBox(height: DSSpacing.xl),
+            Text(
+              'Dispatcher',
+              style: DSTypography.displaySmall.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: DSSpacing.md),
+            const DSLoadingState(message: 'Loading...'),
           ],
         ),
       ),
     );
   }
+}
+
+class _MainShell extends StatefulWidget {
+  final AppSettings settings;
+  final ValueChanged<AppSettings> onSettingsChanged;
+  final String? baseUrl;
+
+  const _MainShell({
+    required this.settings,
+    required this.onSettingsChanged,
+    this.baseUrl,
+  });
+
+  @override
+  State<_MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<_MainShell> {
+  int _currentIndex = 0;
+  late AppSettings _settings;
+  String? _backendStatus;
+  bool _isProbing = false;
+  bool _showLogin = true;
+
+  final List<_NavItem> _allNavItems = [
+    _NavItem(
+      icon: Icons.call_received_rounded,
+      activeIcon: Icons.call_received_rounded,
+      label: 'Calls',
+      roles: [UserRole.caller, UserRole.dispatcher, UserRole.admin],
+    ),
+    _NavItem(
+      icon: Icons.dashboard_rounded,
+      activeIcon: Icons.dashboard_rounded,
+      label: 'Dashboard',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
+    _NavItem(
+      icon: Icons.qr_code_scanner_rounded,
+      activeIcon: Icons.qr_code_rounded,
+      label: 'Lookup',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
+    _NavItem(
+      icon: Icons.add_task_rounded,
+      activeIcon: Icons.add_task_rounded,
+      label: 'Create',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
+    _NavItem(
+      icon: Icons.history_rounded,
+      activeIcon: Icons.history_rounded,
+      label: 'History',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
+    _NavItem(
+      icon: Icons.settings_rounded,
+      activeIcon: Icons.settings_rounded,
+      label: 'Settings',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+    _probeBackend();
+  }
+
+  List<_NavItem> get _visibleNavItems {
+    final auth = context.read<AuthService>();
+    if (auth.currentRole == UserRole.caller) {
+      return _allNavItems.where((item) => item.roles.contains(UserRole.caller)).toList();
+    }
+    return _allNavItems.where((item) => item.roles.contains(auth.currentRole)).toList();
+  }
+
+  Future<void> _probeBackend() async {
+    if (_isProbing) return;
+    setState(() => _isProbing = true);
+    try {
+      final base = widget.baseUrl ?? _settings.apiBaseUrl;
+      final auth = context.read<AuthService>();
+      final res = await http.get(
+        Uri.parse('$base/v1/dispatch/capabilities'),
+        headers: auth.getAuthHeaders(),
+      ).timeout(const Duration(seconds: 5));
+
+      if (res.statusCode == 200 && mounted) {
+        final c = jsonDecode(res.body) as Map<String, dynamic>;
+        setState(() => _backendStatus =
+            'Backend: ${c['backend']} · Profiles: ${(c['profiles'] as List).join(', ')}');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _backendStatus = 'Registry API unreachable');
+    } finally {
+      if (mounted) setState(() => _isProbing = false);
+    }
+  }
+
+  void _onNavTap(int index) {
+    setState(() => _currentIndex = index);
+  }
+
+  void _showLoginSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => LoginScreen(
+        onLoginComplete: () => setState(() {}),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final visibleItems = _visibleNavItems;
+    final currentIndex = _currentIndex.clamp(0, visibleItems.length - 1);
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: currentIndex,
+            children: _buildScreens(auth),
+          ),
+          if (auth.currentRole == UserRole.caller && !auth.isInitialized)
+            Positioned.fill(
+              child: LoginScreen(
+                onLoginComplete: () => setState(() {}),
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: visibleItems.length > 1
+          ? NavigationBar(
+              selectedIndex: _currentIndex.clamp(0, visibleItems.length - 1),
+              onDestinationSelected: (index) => setState(() => _currentIndex = index),
+              destinations: visibleItems.map((item) {
+                return NavigationDestination(
+                  icon: Icon(item.icon),
+                  selectedIcon: Icon(item.activeIcon),
+                  label: item.label,
+                );
+              }).toList(),
+            )
+          : null,
+    );
+  }
+
+  List<Widget> _buildScreens(AuthService auth) {
+    final baseUrl = widget.baseUrl ?? _settings.apiBaseUrl;
+    final graphUrl = _settings.graphApiUrl;
+    final role = auth.currentRole.value;
+
+    return [
+      // Calls (index 0 for caller, 0 for dispatcher/admin)
+      InboundCallScreen(baseUrl: baseUrl, role: role),
+      // Dashboard (index 1 for dispatcher/admin)
+      if (auth.isDispatcher) DashboardScreen(baseUrl: baseUrl, role: role),
+      // Lookup (index 2 for dispatcher/admin)
+      if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
+      // Create (index 3 for dispatcher/admin)
+      if (auth.isDispatcher) CreateDispatchScreen(baseUrl: baseUrl, role: role),
+      // History (index 4 for dispatcher/admin)
+      if (auth.isDispatcher) HistoryScreen(baseUrl: baseUrl, role: role),
+      // Settings (index 5 for dispatcher/admin)
+      if (auth.isDispatcher) SettingsScreen(baseUrl: baseUrl, role: role, initialSettings: _settings),
+    ];
+  }
+}
+
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final List<UserRole> roles;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.roles,
+  });
 }

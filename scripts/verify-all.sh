@@ -22,7 +22,7 @@ printf '%s\n' "${DIM}C1 identity · C3 isolation · C8 evidence · offline opera
 
 # ---------------------------------------------------------------- sync-core
 section "M1 sync-core constraint tests"
-if out=$(cd packages/sync-core && node --test test/ 2>&1); then
+if out=$(cd packages/sync-core && node --test test/*.test.js 2>&1); then
   ok "$(printf '%s' "$out" | grep -E '^. (pass|tests) ' | tr '\n' ' ')"
 else
   bad "sync-core tests failed"
@@ -49,7 +49,7 @@ fi
 
 # -------------------------------------------------------------- M2 registry
 section "M2 registry, sync, dedup, QR"
-if out=$(cd services/registry-api && node --test test/ 2>&1); then
+if out=$(cd services/registry-api && node --test test/*.test.js 2>&1); then
   ok "$(printf '%s' "$out" | grep -E '^. (tests|pass) ' | tr '\n' ' ')"
 else
   bad "registry-api tests failed"
@@ -115,7 +115,7 @@ else
 fi
 
 section "M6 consent vault (6.3) + occupant bridge"
-if out=$(cd services/consent-api && node --test test/ 2>&1); then
+if out=$(cd services/consent-api && node --test test/*.test.js 2>&1); then
   ok "$(printf '%s' "$out" | grep -E '^. (tests|pass) ' | tr '\n' ' ')"
 else
   bad "consent tests failed"

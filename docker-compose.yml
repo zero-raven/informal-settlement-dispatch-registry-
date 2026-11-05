@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  registry-api:
+    build: ./services/registry-api
+    ports:
+      - "8090:8090"
+    environment:
+      - PORT=8090
+      - DB_PATH=/data/registry.db
+    volumes:
+      - ./data:/data
+  dispatcher:
+    build: ./apps/dispatcher
+    ports:
+      - "8080:8080"
+    depends_on:
+      - registry-api

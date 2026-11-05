@@ -187,6 +187,20 @@ class Registry {
         trigger_kind TEXT NOT NULL, source TEXT NOT NULL, outcome TEXT,
         payload TEXT, actor TEXT NOT NULL, created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS dispatcher_responders (
+        dispatch_id TEXT PRIMARY KEY,
+        code TEXT NOT NULL,
+        responder TEXT,
+        at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS dispatcher_outcomes (
+        dispatch_id TEXT PRIMARY KEY,
+        outcome TEXT NOT NULL,
+        structure_id TEXT,
+        actor TEXT,
+        at TEXT NOT NULL
+      );
     `);
   }
 
