@@ -66,6 +66,21 @@ A semester project for mapping informal settlements and managing emergency dispa
 - **Settings**: API URLs, theme (Light/Dark/System), behavior toggles, connection test
 - **Design System**: Consistent spacing (4px), typography, shadows, animations, breakpoints
 
+
+### Information architecture by role
+
+| Role | Sees | Why |
+|---|---|---|
+| **Caller** (dispatcher app) | Calls only | Report an emergency and track it. No structure, dispatch, or service data — that is sensitive operational information (§6.6). |
+| **Dispatcher / Admin** | Calls, Dashboard, Lookup, **Map**, Create, History, Settings | Coordinate the response: stats, code lookup + route, settlement map (structures + breadcrumb walks), assignment, outcomes, history. |
+| **Mapper** (separate app) | Map, Walk, Capture, Sync | Field work only: offline vector map, GPS breadcrumb recording, structure capture, opportunistic sync. No dispatch or identity data. |
+
+### Offline GPS mapping (mapper)
+- **Walk recording**: device GPS (geolocator, best-for-navigation, ~3 m filter) writes breadcrumb points to local SQLite immediately — no connectivity required.
+- **Outbox**: each point queues a `breadcrumb` sync op; structures queue `local_structure` ops. Nothing is uploaded until the mapper reconnects and sets the registry URL (Settings in the Sync section, persisted).
+- **Sync**: `POST /v1/sync/push` with `table: breadcrumb` stores points server-side (idempotent by `clientOpId` and `(device, trace, seq)`); `GET /v1/breadcrumbs` serves them for the dispatcher Map and path-graph builds.
+- **Map**: a local vector canvas (no network tiles) draws structures, the walk polyline, live position, north arrow and scale — it shows exactly what the device knows offline.
+
 ### Build Targets
 | Platform | Command | Output |
 |----------|---------|--------|

@@ -84,8 +84,11 @@ class _LookupScreenState extends State<LookupScreen> {
     if (dest == null) return;
 
     try {
+      // graphUrl may be configured with or without the route path.
+      final base = widget.graphUrl.replaceAll(RegExp(r'/+$'), '');
+      final routeUrl = base.endsWith('/v1/graph/route') ? base : '$base/v1/graph/route';
       final res = await http.post(
-        Uri.parse(widget.graphUrl),
+        Uri.parse(routeUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'from': {'lat': 12.9680, 'lon': 77.5871}, // staging point

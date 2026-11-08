@@ -91,6 +91,12 @@ function createServer({
       if (req.method === 'GET' && url.pathname === '/v1/sync/health') {
         return json(res, 200, registry.health());
       }
+      if (req.method === 'GET' && url.pathname === '/v1/breadcrumbs') {
+        return json(res, 200, registry.listBreadcrumbs({
+          since: url.searchParams.get('since') || null,
+          limit: Number(url.searchParams.get('limit') || 5000),
+        }));
+      }
 
       // ---- structures ------------------------------------------------------
       if (req.method === 'GET' && url.pathname === '/v1/structures') {

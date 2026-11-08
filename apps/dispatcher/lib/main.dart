@@ -18,6 +18,7 @@ import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'inbound_call_screen.dart';
 import 'lookup_screen.dart';
+import 'map_screen.dart';
 import 'create_dispatch_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
@@ -227,6 +228,12 @@ class _MainShellState extends State<_MainShell> {
       roles: [UserRole.dispatcher, UserRole.admin],
     ),
     _NavItem(
+      icon: Icons.map_rounded,
+      activeIcon: Icons.map_rounded,
+      label: 'Map',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
+    _NavItem(
       icon: Icons.add_task_rounded,
       activeIcon: Icons.add_task_rounded,
       label: 'Create',
@@ -392,6 +399,8 @@ class _MainShellState extends State<_MainShell> {
       if (auth.isDispatcher) DashboardScreen(baseUrl: baseUrl, role: role),
       // Lookup (index 2 for dispatcher/admin)
       if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
+      // Settlement map (index 3 for dispatcher/admin)
+      if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
       // Create (index 3 for dispatcher/admin)
       if (auth.isDispatcher) CreateDispatchScreen(baseUrl: baseUrl, role: role),
       // History (index 4 for dispatcher/admin)

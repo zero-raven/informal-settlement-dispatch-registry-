@@ -206,6 +206,19 @@ class Registry {
         lamport INTEGER NOT NULL, site_id TEXT NOT NULL,
         PRIMARY KEY (entity_id, field)
       );
+      CREATE TABLE IF NOT EXISTS breadcrumb (
+        id TEXT PRIMARY KEY,
+        trace_id TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        lat REAL NOT NULL, lon REAL NOT NULL,
+        accuracy_m REAL,
+        recorded_at TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        structure_id TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE (device_id, trace_id, seq)
+      );
+      CREATE INDEX IF NOT EXISTS idx_breadcrumb_trace ON breadcrumb(device_id, trace_id, seq);
     `);
   }
 
@@ -625,6 +638,34 @@ class Registry {
       }
 
       try {
+        if (op.table === 'breadcrumb' && (op.op === 'create' || op.op === 'append')) {
+          const pl = op.payload || {};
+          const points = Array.isArray(pl.points) ? pl.points : (pl.point ? [pl.point] : []);
+          if (!points.length) throw new Error('breadcrumb op needs points[]');
+          const traceId = pl.trace_id || op.entityId || 'unknown';
+          let inserted = 0;
+          for (const pt of points) {
+            if (typeof pt.lat !== 'number' || typeof pt.lon !== 'number') {
+              throw new Error('breadcrumb point needs numeric lat/lon');
+            }
+            const r = this.db.prepare(
+              `INSERT OR IGNORE INTO breadcrumb
+                 (id, trace_id, seq, lat, lon, accuracy_m, recorded_at, device_id, structure_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+              crypto.randomUUID(), traceId, pt.seq ?? inserted,
+              pt.lat, pt.lon, pt.accuracy_m ?? pt.accuracy ?? null,
+              pt.recorded_at ?? pt.ts ?? new Date().toISOString(),
+              deviceId || mapperId, pl.structure_id ?? pt.structure_id ?? null,
+              new Date().toISOString());
+            inserted += r.changes;
+          }
+          this.recordReceipt({
+            clientOpId: op.clientOpId, clientSeq: op.clientSeq, mapperId,
+            table: op.table, entityId: traceId, serverVersion: inserted,
+          });
+          results.push({ clientOpId: op.clientOpId, state: 'applied', serverId: traceId, version: inserted });
+          continue;
+        }
         if (op.table === 'local_structure' && op.op === 'create') {
           const pl = op.payload || {};
           const centroid = pl.centroid || {};
@@ -809,6 +850,14 @@ class Registry {
       services: this.db.prepare('SELECT * FROM structure_service').all(),
       serverTime: new Date().toISOString(),
     };
+  }
+
+  /** Breadcrumb points for map/graph building, after `since` (ISO time). */
+  listBreadcrumbs({ since = null, limit = 5000 } = {}) {
+    const rows = since
+      ? this.db.prepare('SELECT * FROM breadcrumb WHERE recorded_at > ? ORDER BY recorded_at ASC LIMIT ?').all(since, limit)
+      : this.db.prepare('SELECT * FROM breadcrumb ORDER BY recorded_at ASC LIMIT ?').all(limit);
+    return { points: rows, cursor: rows.length ? rows[rows.length - 1].recorded_at : since || null };
   }
 
   health() {

@@ -12,6 +12,7 @@ import 'package:mapper/core/local_store.dart';
 import 'package:mapper/main.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _FakePathProvider extends PathProviderPlatform
@@ -40,6 +41,7 @@ void main() {
   late LocalStore store;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     dir = Directory.systemTemp.createTempSync('mapper-widget-').path;
     PathProviderPlatform.instance = _FakePathProvider(dir);
     store = await LocalStore.open();
@@ -52,7 +54,7 @@ void main() {
 
   testWidgets('mapper app boots and shows the capture screen', (tester) async {
     // Tall viewport: the capture button sits below the classification card.
-    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.physicalSize = const Size(800, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(MapperApp(store: store));
@@ -62,10 +64,15 @@ void main() {
   });
 
   testWidgets('capturing from the UI works with no network', (tester) async {
-    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.physicalSize = const Size(800, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(MapperApp(store: store));
+    await tester.pump();
+
+    // Capture needs coordinates: enter them manually (no GPS in tests).
+    await tester.enterText(find.widgetWithText(TextField, 'Latitude'), '12.9700');
+    await tester.enterText(find.widgetWithText(TextField, 'Longitude'), '77.5900');
     await tester.pump();
 
     // The capture handler awaits a real SQLite write, which lives outside the

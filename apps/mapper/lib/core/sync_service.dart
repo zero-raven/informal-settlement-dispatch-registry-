@@ -66,6 +66,10 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<SyncOutcome> syncNow({bool force = false}) async {
+    if (baseUrl == null || baseUrl!.isEmpty) {
+      return SyncOutcome(attempted: false, pushed: 0, acked: 0, dedupRequired: 0, rejected: 0,
+          error: 'no server URL — set it in the Synchronisation section');
+    }
     if (_busy) {
       return SyncOutcome(attempted: false, pushed: 0, acked: 0, dedupRequired: 0, rejected: 0,
           error: 'already running');
