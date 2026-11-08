@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'design_system.dart';
 import 'components.dart';
 import 'models.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String? baseUrl;
@@ -42,7 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() => _isLoading = true);
     try {
       final base = widget.baseUrl ?? _api;
-      final headers = {'Content-Type': 'application/json', 'X-Role': widget.role};
+      final headers = context.read<AuthService>().getAuthHeaders();
 
       final res = await http.get(
         Uri.parse('$base/v1/dispatch/recent?limit=100'),
@@ -83,6 +85,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('History')),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: CustomScrollView(
         slivers: [

@@ -7,6 +7,8 @@ import 'dart:convert';
 import 'design_system.dart';
 import 'components.dart';
 import 'models.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String? baseUrl;
@@ -43,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       final base = widget.baseUrl ?? _api;
-      final headers = {'Content-Type': 'application/json', 'X-Role': widget.role};
+      final headers = context.read<AuthService>().getAuthHeaders();
 
       final results = await Future.wait([
         http.get(Uri.parse('$base/v1/dispatch/stats'), headers: headers),
@@ -87,6 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isWide = MediaQuery.of(context).size.width > 768;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('Home')),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: RefreshIndicator(
         onRefresh: _loadDashboardData,

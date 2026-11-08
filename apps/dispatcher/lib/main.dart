@@ -20,6 +20,7 @@ import 'inbound_call_screen.dart';
 import 'lookup_screen.dart';
 import 'map_screen.dart';
 import 'mapper_screen.dart';
+import 'more_screen.dart';
 import 'create_dispatch_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
@@ -209,18 +210,20 @@ class _MainShellState extends State<_MainShell> {
   String? _backendStatus;
   bool _isProbing = false;
 
+  // Mobile IA: at most five primary destinations per role. Everything
+  // else (Create, History, Settings, Sign out) lives under "More".
   final List<_NavItem> _allNavItems = [
+    _NavItem(
+      icon: Icons.dashboard_rounded,
+      activeIcon: Icons.dashboard_rounded,
+      label: 'Home',
+      roles: [UserRole.dispatcher, UserRole.admin],
+    ),
     _NavItem(
       icon: Icons.call_received_rounded,
       activeIcon: Icons.call_received_rounded,
       label: 'Calls',
       roles: [UserRole.caller, UserRole.dispatcher, UserRole.admin],
-    ),
-    _NavItem(
-      icon: Icons.dashboard_rounded,
-      activeIcon: Icons.dashboard_rounded,
-      label: 'Dashboard',
-      roles: [UserRole.dispatcher, UserRole.admin],
     ),
     _NavItem(
       icon: Icons.qr_code_scanner_rounded,
@@ -241,22 +244,10 @@ class _MainShellState extends State<_MainShell> {
       roles: [UserRole.mapper],
     ),
     _NavItem(
-      icon: Icons.add_task_rounded,
-      activeIcon: Icons.add_task_rounded,
-      label: 'Create',
-      roles: [UserRole.dispatcher, UserRole.admin],
-    ),
-    _NavItem(
-      icon: Icons.history_rounded,
-      activeIcon: Icons.history_rounded,
-      label: 'History',
-      roles: [UserRole.dispatcher, UserRole.admin],
-    ),
-    _NavItem(
-      icon: Icons.settings_rounded,
-      activeIcon: Icons.settings_rounded,
-      label: 'Settings',
-      roles: [UserRole.dispatcher, UserRole.admin],
+      icon: Icons.more_horiz_rounded,
+      activeIcon: Icons.more_horiz_rounded,
+      label: 'More',
+      roles: [UserRole.caller, UserRole.dispatcher, UserRole.admin, UserRole.mapper],
     ),
   ];
 
@@ -400,23 +391,18 @@ class _MainShellState extends State<_MainShell> {
     final graphUrl = _settings.graphApiUrl;
     final role = auth.currentRole.value;
 
+    // Order must match the filtered _allNavItems order per role:
+    // dispatcher/admin: Home, Calls, Lookup, Map, More
+    // caller: Calls, More
+    // mapper: Field, More
     return [
-      // Calls (index 0 for caller, 0 for dispatcher/admin)
-      InboundCallScreen(baseUrl: baseUrl, role: role),
-      // Dashboard (index 1 for dispatcher/admin)
       if (auth.isDispatcher) DashboardScreen(baseUrl: baseUrl, role: role),
-      // Lookup (index 2 for dispatcher/admin)
+      InboundCallScreen(baseUrl: baseUrl, role: role),
       if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
-      // Settlement map (index 3 for dispatcher/admin)
       if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
-      // Field work (mapper only): offline map, GPS walk, capture, sync
       if (auth.isMapper) const MapperScreen(),
-      // Create (index 3 for dispatcher/admin)
-      if (auth.isDispatcher) CreateDispatchScreen(baseUrl: baseUrl, role: role),
-      // History (index 4 for dispatcher/admin)
-      if (auth.isDispatcher) HistoryScreen(baseUrl: baseUrl, role: role),
-      // Settings (index 5 for dispatcher/admin)
-      if (auth.isDispatcher) SettingsScreen(baseUrl: baseUrl, role: role, initialSettings: _settings, onSettingsChanged: (s) { _settings = s; _probeBackend(); }),
+      MoreScreen(baseUrl: baseUrl, role: role, initialSettings: _settings,
+          onSettingsChanged: (s) { _settings = s; _probeBackend(); }),
     ];
   }
 }

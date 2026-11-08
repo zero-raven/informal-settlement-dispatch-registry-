@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'design_system.dart';
 import 'components.dart';
 import 'models.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? baseUrl;
@@ -84,7 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final res = await http.get(
         Uri.parse('${_settings.apiBaseUrl}/v1/dispatch/capabilities'),
-        headers: {'Content-Type': 'application/json', 'X-Role': _settings.role},
+        headers: context.read<AuthService>().getAuthHeaders(),
       ).timeout(const Duration(seconds: 5));
 
       if (mounted) {
@@ -127,6 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: CustomScrollView(
         slivers: [

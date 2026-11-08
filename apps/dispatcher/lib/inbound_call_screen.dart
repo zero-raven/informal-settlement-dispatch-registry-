@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'design_system.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 import 'components.dart';
 
 class InboundCallScreen extends StatefulWidget {
@@ -55,7 +57,7 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
   }
 
   Future<Map<String, String>> _headers() async =>
-      {'Content-Type': 'application/json', 'X-Role': widget.role};
+      context.read<AuthService>().getAuthHeaders();
 
   Future<void> _loadActiveCalls() async {
     // Simulated active calls - in production would come from backend
@@ -215,6 +217,7 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('Calls')),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: CustomScrollView(
         slivers: [

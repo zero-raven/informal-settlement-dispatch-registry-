@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'design_system.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class MapScreen extends StatefulWidget {
   final String? baseUrl;
@@ -39,7 +41,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() { _busy = true; _error = null; });
     try {
       final base = widget.baseUrl ?? 'http://127.0.0.1:8090';
-      final headers = {'Content-Type': 'application/json', 'X-Role': widget.role};
+      final headers = context.read<AuthService>().getAuthHeaders();
       final sRes = await http.get(Uri.parse('$base/v1/structures'), headers: headers)
           .timeout(const Duration(seconds: 8));
       final bRes = await http.get(Uri.parse('$base/v1/breadcrumbs'), headers: headers)
@@ -77,6 +79,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Map')),
       backgroundColor: DSColors.surface0,
       body: RefreshIndicator(
         onRefresh: _load,

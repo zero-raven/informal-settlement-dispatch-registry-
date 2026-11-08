@@ -7,6 +7,8 @@ import 'dart:convert';
 import 'design_system.dart';
 import 'components.dart';
 import 'models.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class CreateDispatchScreen extends StatefulWidget {
   final String? baseUrl;
@@ -45,7 +47,7 @@ class _CreateDispatchScreenState extends State<CreateDispatchScreen> {
   }
 
   Future<Map<String, String>> _headers() async =>
-      {'Content-Type': 'application/json', 'X-Role': widget.role};
+      context.read<AuthService>().getAuthHeaders();
 
   Future<void> _loadPendingDispatches() async {
     try {
@@ -168,6 +170,7 @@ class _CreateDispatchScreenState extends State<CreateDispatchScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('Create dispatch')),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: CustomScrollView(
         slivers: [

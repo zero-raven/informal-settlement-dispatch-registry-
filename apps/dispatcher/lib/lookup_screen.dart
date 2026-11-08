@@ -7,6 +7,8 @@ import 'dart:convert';
 import 'design_system.dart';
 import 'components.dart';
 import 'models.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class LookupScreen extends StatefulWidget {
   final String? baseUrl;
@@ -39,7 +41,7 @@ class _LookupScreenState extends State<LookupScreen> {
   }
 
   Future<Map<String, String>> _headers() async =>
-      {'Content-Type': 'application/json', 'X-Role': widget.role};
+      context.read<AuthService>().getAuthHeaders();
 
   Future<void> _lookupCode() async {
     final code = _codeController.text.trim();
@@ -142,6 +144,7 @@ class _LookupScreenState extends State<LookupScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('Lookup')),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: CustomScrollView(
         slivers: [
