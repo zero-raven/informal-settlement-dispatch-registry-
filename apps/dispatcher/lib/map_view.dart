@@ -10,6 +10,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'tile_layer.dart';
+
 class MapPin {
   const MapPin({required this.lat, required this.lon, this.label, this.synced = true});
   final double lat;
@@ -80,7 +82,7 @@ class MapProjection {
   }
 }
 
-class OfflineMapView extends StatelessWidget {
+class OfflineMapView extends StatefulWidget {
   const OfflineMapView({
     super.key,
     required this.pins,
@@ -95,25 +97,71 @@ class OfflineMapView extends StatelessWidget {
   final double height;
 
   @override
+  State<OfflineMapView> createState() => _OfflineMapViewState();
+}
+
+class _OfflineMapViewState extends State<OfflineMapView> {
+  List<TileImage>? _tiles;
+  String _tilesKey = '';
+
+  @override
+  void didUpdateWidget(OfflineMapView old) {
+    super.didUpdateWidget(old);
+    if (old.pins != widget.pins || old.trail != widget.trail) {
+      _tiles = null;
+    }
+  }
+
+  Future<List<TileImage>> _loadFor(Size size) async {
+    final lats = <double>[...widget.pins.map((p) => p.lat), ...widget.trail.map((p) => p.lat)];
+    final lons = <double>[...widget.pins.map((p) => p.lon), ...widget.trail.map((p) => p.lon)];
+    if (widget.livePosition != null) {
+      lats.add(widget.livePosition!.lat);
+      lons.add(widget.livePosition!.lon);
+    }
+    if (lats.isEmpty) return const [];
+    final key = '${lats.length}-${lons.length}-${size.width}x${size.height}';
+    final zoom = TileMath.zoomForSpan(
+      (lats.reduce(math.max) - lats.reduce(math.min)) * 111320, size.height);
+    return loadTiles(
+      minLat: lats.reduce(math.min), maxLat: lats.reduce(math.max),
+      minLon: lons.reduce(math.min), maxLon: lons.reduce(math.max),
+      zoom: zoom, width: size.width, height: size.height,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Offline settlement map: ${pins.length} structures, '
-          '${trail.length} breadcrumb points',
+      label: 'Offline settlement map: ${widget.pins.length} structures, '
+          '${widget.trail.length} breadcrumb points',
       child: SizedBox(
-        height: height,
-        child: CustomPaint(
-          painter: _OfflineMapPainter(pins: pins, trail: trail, livePosition: livePosition),
-        ),
+        height: widget.height,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, widget.height);
+          if (_tiles == null) {
+            Future.microtask(() async {
+              final tiles = await _loadFor(size);
+              if (mounted) setState(() => _tiles = tiles);
+            });
+          }
+          return CustomPaint(
+            painter: _OfflineMapPainter(
+                pins: widget.pins, trail: widget.trail,
+                livePosition: widget.livePosition, tiles: _tiles ?? const []),
+          );
+        }),
       ),
     );
   }
 }
 
 class _OfflineMapPainter extends CustomPainter {
-  _OfflineMapPainter({required this.pins, required this.trail, required this.livePosition});
+  _OfflineMapPainter({required this.pins, required this.trail, required this.livePosition, this.tiles = const []});
   final List<MapPin> pins;
   final List<MapTrailPoint> trail;
   final MapTrailPoint? livePosition;
+  final List<TileImage> tiles;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -121,6 +169,11 @@ class _OfflineMapPainter extends CustomPainter {
     // Background: deep map surface, subtle grid streets every ~50 m.
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
         Paint()..color = const Color(0xFF0B1220));
+
+    // Pre-downloaded tiles (offline pack) under the vector overlay.
+    for (final t in tiles) {
+      canvas.drawImageRect(t.image, Rect.fromLTWH(0, 0, t.image.width.toDouble(), t.image.height.toDouble()), t.rect, Paint()..color = const Color(0xFFFFFFFF).withOpacity(0.85));
+    }
 
     final lats = <double>[...pins.map((p) => p.lat), ...trail.map((p) => p.lat)];
     final lons = <double>[...pins.map((p) => p.lon), ...trail.map((p) => p.lon)];

@@ -54,7 +54,7 @@ A semester project for mapping informal settlements and managing emergency dispa
 | **Dispatch** | `POST /v1/dispatch/lookup`, `POST /v1/dispatch/assign`, `POST /v1/dispatch/outcome`, `GET /v1/dispatch/stats`, `GET /v1/dispatch/recent` | Foot/vehicle routing, responder assignment, outcome tracking |
 | **Grievance** | `POST /v1/grievances`, `GET /v1/grievances`, `POST /v1/grievances/:id/triage` | Emergency call intake, rule-based triage state machine (no ML classifier) |
 | **Sync** | `GET /v1/sync/bootstrap?zone=`, `GET /v1/tasks`, `POST /v1/tasks/:id/complete` | Offline-first sync, mapper task queue |
-| **Auth** | Role via `X-Role` header: `caller` \| `dispatcher` \| `admin` \| `reviewer` | Mock role header (`X-Role`) + device-hash identity — NOT production auth; OIDC is not implemented |
+| **Auth** | `POST /v1/auth/login`, `GET /v1/auth/me`, `POST /v1/auth/refresh` | Signed bearer tokens; role verified server-side from the token. Demo accounts in `services/registry-api/src/auth.js`. Set `AUTH_SECRET` in production. |
 
 ### Frontend (Flutter)
 - **Role-based UI**: Caller sees only Calls tab; Dispatcher/Admin see all 6 tabs
@@ -166,10 +166,10 @@ curl -H "X-Role: dispatcher" http://127.0.0.1:8090/v1/dispatch/stats
 ```
 clg/el/
 ├── apps/
-│   ├── dispatcher/          # Flutter app (this project)
+│   ├── dispatcher/          # SINGLE unified app (see below)          # Flutter app (this project)
 │   │   ├── lib/
 │   │   │   ├── main.dart           # App entry, role-based routing
-│   │   │   ├── auth_service.dart   # Mock role header + device_hash (not OIDC)
+│   │   │   ├── auth_service.dart   # Token auth (server-signed) + device_hash
 │   │   │   ├── login_screen.dart   # Role selection UI
 │   │   │   ├── inbound_call_screen.dart  # Calls tab (caller/dispatcher)
 │   │   │   ├── dashboard_screen.dart     # Stats, recent, quick actions
@@ -285,3 +285,27 @@ Semester project — RVCE CSE 2026. Educational use only.
 - Flutter team for the framework
 - Node.js / Express for the backend
 - OpenStreetMap / OSM data concepts for zone/structure modeling
+---
+
+## Single unified app
+
+There is one Flutter application: `apps/dispatcher`. It contains both the
+dispatch system and the field mapper, selected by the **account role**
+returned at login — not by device:
+
+| Role | Tabs |
+|---|---|
+| Caller | Calls |
+| Dispatcher / Admin | Calls, Dashboard, Lookup, Map, Create, History, Settings |
+| Mapper | Field (offline map, GPS walk, capture, sync) |
+
+The former standalone `apps/mapper` project was merged into it and deleted;
+its offline store, GPS, sync and map code now live in `apps/dispatcher/lib/core/`,
+`lib/mapper_screen.dart` and `lib/map_view.dart`.
+
+## Offline map tiles
+
+`scripts/download-tiles.py` downloads a small OSM tile pack for the pilot
+zone (z14–17, ~5 MB) into `apps/dispatcher/tiles/`, which is bundled as an
+asset. The app draws cached tiles under the vector overlay and never loads
+tiles from the network. Regenerate with the script (the pack is gitignored).

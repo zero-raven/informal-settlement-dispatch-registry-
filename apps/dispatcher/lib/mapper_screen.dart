@@ -1,4 +1,6 @@
-/// Mapper app — offline-first settlement mapping.
+// Mapper screen for the unified app. Offline-first: GPS walks, structure
+// capture and sync live here for the mapper role only.
+/// Mapper (field) screen — offline-first settlement mapping, inside the unified app.
 ///
 /// What a mapper needs, in order:
 ///  1. See where they are and what has been captured (offline vector map).
@@ -25,42 +27,16 @@ import 'map_view.dart';
 
 const _uuid = Uuid();
 
-void main() {
-  runApp(const MapperApp());
-}
-
-class MapperApp extends StatelessWidget {
-  const MapperApp({super.key, this.store});
-
-  /// Injected by tests so the widget tree can be exercised without real file
-  /// I/O. Production passes null and the screen opens the store itself.
-  final LocalStore? store;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Mapper',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF2EC4B6),
-        scaffoldBackgroundColor: const Color(0xFF0F1115),
-      ),
-      home: CaptureScreen(initialStore: store),
-    );
-  }
-}
-
-class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key, this.initialStore});
+class MapperScreen extends StatefulWidget {
+  const MapperScreen({super.key, this.initialStore});
 
   final LocalStore? initialStore;
 
   @override
-  State<CaptureScreen> createState() => _CaptureScreenState();
+  State<MapperScreen> createState() => _MapperScreenState();
 }
 
-class _CaptureScreenState extends State<CaptureScreen> {
+class _MapperScreenState extends State<MapperScreen> {
   LocalStore? _store;
   SyncService? _sync;
 

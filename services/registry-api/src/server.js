@@ -35,6 +35,8 @@ function createServer({
   registry = new Registry(process.env.DB_PATH || ':memory:'),
   backendName = process.env.DISPATCH_BACKEND || 'internal',
   router = null,
+  auth = null,
+  allowRoleHeader = false,
 } = {}) {
   // Optional graph-service routing: when GRAPH_URL is set, lookup asks the
   // graph service for a route. Any failure degrades to route:null — the
@@ -57,12 +59,23 @@ function createServer({
   // the interface. A future external adapter registers here unchanged.
   const backend = createBackend(backendName, { registry, router });
   const feedback = new FeedbackEngine({ registry });
+  const { AuthService } = require('./auth.js');
+  const authService = auth || new AuthService();
+  // X-Role fallback is a test-only opt-in, never a production path.
+  const roleHeaderAllowed = allowRoleHeader || authService.allowRoleHeader;
 
   const srv = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return json(res, 204, {});
 
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const role = req.headers['x-role'] || 'mapper';
+    // Role comes from a verified token. X-Role is accepted only when the
+    // caller explicitly enabled the test fallback.
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const identity = token ? authService.verify(token) : null;
+    const role = identity ? identity.role
+      : (roleHeaderAllowed ? (req.headers['x-role'] || 'mapper') : null);
+    const userId = identity ? identity.username : (req.headers['x-user'] || null);
 
     const body = async () => {
       const chunks = [];
@@ -70,7 +83,31 @@ function createServer({
       return chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {};
     };
 
+    const requireRole = (...roles) => {
+      if (!role) { json(res, 401, { error: 'unauthorized', detail: 'a valid bearer token is required' }); return true; }
+      if (!roles.includes(role)) { json(res, 403, { error: 'forbidden', detail: `requires role: ${roles.join('/')}` }); return true; }
+      return false;
+    };
+
     try {
+      // ---- auth ----------------------------------------------------------
+      if (req.method === 'POST' && url.pathname === '/v1/auth/login') {
+        const b = await body();
+        const token = authService.login(b.username, b.password);
+        if (!token) return json(res, 401, { error: 'invalid_credentials' });
+        const me = authService.verify(token);
+        return json(res, 200, { token, username: me.username, role: me.role });
+      }
+      if (req.method === 'POST' && url.pathname === '/v1/auth/refresh') {
+        if (!identity) return json(res, 401, { error: 'unauthorized' });
+        const user = authService.users.get(identity.username);
+        return json(res, 200, { token: authService.issueToken(user), username: identity.username, role: identity.role });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/auth/me') {
+        if (!identity) return json(res, 401, { error: 'unauthorized' });
+        return json(res, 200, { username: identity.username, role: identity.role });
+      }
+
       // ---- sync ------------------------------------------------------------
       if (req.method === 'POST' && url.pathname === '/v1/sync/push') {
         const b = await body();
@@ -118,22 +155,20 @@ function createServer({
 
       // ---- dedup review ----------------------------------------------------
       if (req.method === 'GET' && url.pathname === '/v1/dedup') {
-        if (role !== 'reviewer' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'reviewer role required' });
-        }
+        const denied = requireRole('reviewer', 'admin');
+        if (denied) return denied;
         return json(res, 200, {
           items: registry.openDedupQueue(url.searchParams.get('state') || 'open'),
         });
       }
       if (req.method === 'POST' && url.pathname.endsWith('/decision')) {
-        if (role !== 'reviewer' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'reviewer role required' });
-        }
+        const denied = requireRole('reviewer', 'admin');
+        if (denied) return denied;
         const id = url.pathname.split('/')[3];  // /v1/dedup/:id/decision
         const b = await body();
         try {
           return json(res, 200, registry.decideDedup(id, b.decision, {
-            reviewerId: req.headers['x-user'] || 'reviewer',
+            reviewerId: userId || 'reviewer',
             note: b.note,
             classification: b.classification,
             codeResolution: b.code_resolution,
@@ -159,24 +194,21 @@ function createServer({
       }
 
       if (req.method === 'GET' && url.pathname === '/v1/dispatch/stats') {
-        if (role !== 'dispatcher' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
-        }
+        const denied = requireRole('dispatcher', 'admin');
+        if (denied) return denied;
         return json(res, 200, await backend.stats());
       }
 
       if (req.method === 'GET' && url.pathname === '/v1/dispatch/recent') {
-        if (role !== 'dispatcher' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
-        }
+        const denied = requireRole('dispatcher', 'admin');
+        if (denied) return denied;
         const limit = Number(url.searchParams.get('limit') || 10);
         return json(res, 200, { dispatches: await backend.recent(limit) });
       }
 
       if (req.method === 'POST' && url.pathname === '/v1/dispatch/lookup') {
-        if (role !== 'dispatcher' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
-        }
+        const denied = requireRole('dispatcher', 'admin');
+        if (denied) return denied;
         const b = await body();
         const out = await backend.lookup(b.code, b.responder_location, b.profile || 'foot');
         if (out.error) return json(res, out.http || 400, out);
@@ -187,9 +219,8 @@ function createServer({
       }
 
       if (req.method === 'POST' && url.pathname === '/v1/dispatch/assign') {
-        if (role !== 'dispatcher' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
-        }
+        const denied = requireRole('dispatcher', 'admin');
+        if (denied) return denied;
         const b = await body();
         const assigned = await backend.dispatch(b.code, b);
         if (assigned.error) return json(res, assigned.http || 400, assigned);
@@ -197,9 +228,8 @@ function createServer({
       }
 
       if (req.method === 'POST' && url.pathname === '/v1/dispatch/outcome') {
-        if (role !== 'dispatcher' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
-        }
+        const denied = requireRole('dispatcher', 'admin');
+        if (denied) return denied;
         const b = await body();
         const done = await backend.outcome(b.dispatch_id, b);
         if (done.error) return json(res, done.http || 400, done);
@@ -231,7 +261,7 @@ function createServer({
             value: b.value ?? null,
             // The verifying person is taken from the session, not the body:
             // a client must not be able to claim to be someone else.
-            actor: req.headers['x-user'] || null,
+            actor: userId,
             note: b.note ?? null,
           });
           return json(res, 200, out);
@@ -249,7 +279,7 @@ function createServer({
         try {
           return json(res, 200, feedback.completeTask({
             taskId: id, outcome: b.outcome ?? 'confirmed',
-            actor: req.headers['x-user'] || null,
+            actor: userId,
             note: b.note ?? null, updates: b.updates ?? null,
           }));
         } catch (e) {
@@ -371,9 +401,8 @@ function createServer({
       }
 
       if (req.method === 'GET' && url.pathname === '/v1/grievances') {
-        if (role !== 'dispatcher' && role !== 'reviewer' && role !== 'admin') {
-          return json(res, 403, { error: 'forbidden', detail: 'dispatcher/reviewer/admin role required' });
-        }
+        const denied = requireRole('dispatcher', 'reviewer', 'admin');
+        if (denied) return denied;
         const stateFilter = url.searchParams.get('state') || null;
         const zoneFilter = url.searchParams.get('zone') || null;
         let sql = 'SELECT * FROM grievance';

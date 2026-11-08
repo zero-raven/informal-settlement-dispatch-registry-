@@ -122,14 +122,14 @@ else
   printf '%s\n' "$out" | grep -E '✖' | head -8 | sed 's/^/      /'
 fi
 
-# ----------------------------------------------------------------- mapper app
-section "M1 mapper app (offline capture)"
+# ----------------------------------------------------------------- unified app (mapper + dispatcher)
+section "Unified app (offline capture + dispatch)"
 if [ -d .cache/flutter ]; then
   export PATH="$PWD/.cache/flutter/bin:$PATH"
-  if out=$(cd apps/mapper && timeout 300 flutter test --reporter compact 2>&1); then
+  if out=$(cd apps/dispatcher && timeout 300 flutter test --reporter compact 2>&1); then
     ok "$(printf '%s' "$out" | tr '\r' '\n' | grep -oE '\+[0-9]+(: All tests passed!)?' | tail -1 | sed 's/^/tests /')"
   else
-    bad "mapper app tests failed"
+    bad "unified app tests failed"
     printf '%s\n' "$out" | tail -12 | sed 's/^/      /'
   fi
 else

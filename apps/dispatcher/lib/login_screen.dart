@@ -8,67 +8,54 @@ import 'auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginComplete;
+  final String? baseUrl;
 
-  const LoginScreen({super.key, required this.onLoginComplete});
+  const LoginScreen({super.key, required this.onLoginComplete, this.baseUrl});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  UserRole _selectedRole = UserRole.caller;
+  final TextEditingController _userController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _apiController = TextEditingController();
   bool _isLoading = false;
+  String? _error;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _userController.dispose();
+    _passwordController.dispose();
+    _apiController.dispose();
     super.dispose();
   }
 
   Future<void> _continue() async {
     final auth = context.read<AuthService>();
-    
-    // Validate name for dispatcher/admin
-    if (_selectedRole != UserRole.caller && _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter your name', style: DSTypography.bodyMedium.copyWith(color: Colors.white)),
-          backgroundColor: DSColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
-        ),
-      );
+    final username = _userController.text.trim();
+    final password = _passwordController.text;
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _error = 'Enter your username and password.');
       return;
     }
-
-    setState(() => _isLoading = true);
-
+    setState(() { _isLoading = true; _error = null; });
     try {
-      await auth.setRole(_selectedRole, userName: _nameController.text.trim());
-      
-      if (mounted) {
+      final base = _apiController.text.trim().isNotEmpty
+          ? _apiController.text.trim()
+          : (widget.baseUrl ?? 'http://127.0.0.1:8090');
+      final ok = await auth.login(username, password, base);
+      if (!mounted) return;
+      if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Logged in as ${_selectedRole.displayName}', style: DSTypography.bodyMedium.copyWith(color: Colors.white)),
-            backgroundColor: DSColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
-          ),
+          SnackBar(content: Text('Logged in as ${auth.currentRole.displayName}')),
         );
         widget.onLoginComplete();
+      } else {
+        setState(() => _error = 'Invalid credentials, or the server is unreachable. Check the server URL.');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: $e', style: DSTypography.bodyMedium.copyWith(color: Colors.white)),
-            backgroundColor: DSColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
-          ),
-        );
-      }
+      if (mounted) setState(() => _error = 'Login failed: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -119,39 +106,60 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: DSSpacing.xl),
 
-                  // Role Selection
+                  // Credentials — the server decides the role from the account.
                   Text(
-                    'Select Your Role',
+                    'Sign in',
                     style: DSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: DSSpacing.md),
-
-                  _RoleSelector(
-                    selectedRole: _selectedRole,
-                    onChanged: (role) => setState(() => _selectedRole = role),
-                  ),
-
-                  const SizedBox(height: DSSpacing.lg),
-
-                  // Name Field (for dispatcher/admin)
-                  if (_selectedRole != UserRole.caller) ...[
-                    TextField(
-                      controller: _nameController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: InputDecoration(
-                        labelText: 'Your Name *',
-                        hintText: 'Enter your name',
-                        prefixIcon: const Icon(Icons.person_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(DSBorderRadius.md),
-                        ),
+                  TextField(
+                    controller: _userController,
+                    textCapitalization: TextCapitalization.none,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      hintText: 'e.g. dispatcher, mapper, caller',
+                      prefixIcon: const Icon(Icons.person_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(DSBorderRadius.md),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: DSSpacing.md),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: const Icon(Icons.lock_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                      ),
+                    ),
+                    onSubmitted: (_) => _continue(),
+                  ),
+                  const SizedBox(height: DSSpacing.md),
+                  TextField(
+                    controller: _apiController,
+                    keyboardType: TextInputType.url,
+                    decoration: InputDecoration(
+                      labelText: 'Server URL',
+                      hintText: widget.baseUrl ?? 'http://192.168.1.5:8090',
+                      prefixIcon: const Icon(Icons.api_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                      ),
+                    ),
+                  ),
+                  if (_error != null) ...[
                     const SizedBox(height: DSSpacing.md),
+                    Text(_error!, style: const TextStyle(color: DSColors.error)),
                   ],
-
-                  // Role Description
-                  _RoleDescriptionCard(role: _selectedRole),
+                  const SizedBox(height: DSSpacing.lg),
+                  const Text(
+                    'Your account determines what you can see: callers report, '
+                    'dispatchers coordinate, mappers map offline.',
+                    style: TextStyle(color: DSColors.textSecondary),
+                  ),
 
                   const SizedBox(height: DSSpacing.xl),
 
@@ -184,152 +192,3 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-class _RoleSelector extends StatelessWidget {
-  final UserRole selectedRole;
-  final ValueChanged<UserRole> onChanged;
-
-  const _RoleSelector({required this.selectedRole, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final roles = [
-      (UserRole.caller, 'Report emergencies', Icons.emergency_rounded, DSColors.primary),
-      (UserRole.dispatcher, 'Manage dispatches', Icons.local_shipping_rounded, DSColors.info),
-      (UserRole.admin, 'Full system access', Icons.admin_panel_settings_rounded, DSColors.warning),
-    ];
-
-    return Column(
-      children: roles.map((role) {
-        final (userRole, subtitle, icon, color) = role;
-        final isSelected = selectedRole == userRole;
-
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => onChanged(userRole),
-            borderRadius: BorderRadius.circular(DSBorderRadius.lg),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(DSSpacing.md),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(DSBorderRadius.lg),
-                border: Border.all(
-                  color: isSelected ? color : DSColors.border,
-                  width: isSelected ? 2 : 1,
-                ),
-                color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(DSSpacing.md),
-                    decoration: BoxDecoration(
-                      color: isSelected ? color : color.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(DSBorderRadius.md),
-                    ),
-                    child: Icon(icon, color: isSelected ? Colors.white : color, size: 24),
-                  ),
-                  const SizedBox(width: DSSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userRole.displayName,
-                          style: DSTypography.titleMedium.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? color : DSColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          subtitle,
-                          style: DSTypography.bodySmall.copyWith(color: DSColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isSelected)
-                    Icon(Icons.check_circle_rounded, color: color, size: 24),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _RoleDescriptionCard extends StatelessWidget {
-  final UserRole role;
-
-  const _RoleDescriptionCard({required this.role});
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, color, description, permissions) = switch (role) {
-      UserRole.caller => (
-        Icons.emergency_rounded,
-        DSColors.primary,
-        'Report emergencies from your location. Track your call status and view response.',
-        ['Log emergency calls', 'View own call history', 'Track dispatch status'],
-      ),
-      UserRole.dispatcher => (
-        Icons.local_shipping_rounded,
-        DSColors.info,
-        'Manage emergency dispatches. Assign responders, track outcomes, monitor system.',
-        ['View all incoming calls', 'Create & manage dispatches', 'Dashboard & statistics', 'Lookup structures', 'Full dispatch history'],
-      ),
-      UserRole.admin => (
-        Icons.admin_panel_settings_rounded,
-        DSColors.warning,
-        'Full administrative access. Configure system, manage users, view all data.',
-        ['All dispatcher permissions', 'System settings', 'User management', 'API configuration', 'Audit logs'],
-      ),
-    };
-
-    return DSCard(
-      padding: const EdgeInsets.all(DSSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(DSSpacing.sm),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(DSBorderRadius.md),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: DSSpacing.sm),
-              Text(
-                'About this role',
-                style: DSTypography.titleSmall.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: DSSpacing.md),
-          Text(
-            description,
-            style: DSTypography.bodyMedium.copyWith(color: DSColors.textSecondary),
-          ),
-          const SizedBox(height: DSSpacing.md),
-          Text('Permissions:', style: DSTypography.labelMedium.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: DSSpacing.xs),
-          ...permissions.map((p) => Padding(
-            padding: const EdgeInsets.only(bottom: DSSpacing.xs),
-            child: Row(
-              children: [
-                Icon(Icons.check_rounded, size: 16, color: color),
-                const SizedBox(width: DSSpacing.sm),
-                Expanded(child: Text(p, style: DSTypography.bodySmall)),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
-}

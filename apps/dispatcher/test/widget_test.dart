@@ -1,8 +1,8 @@
-// Widget smoke tests for the dispatcher app.
+// Widget smoke tests for the unified app.
 //
-// The app now gates on role selection (AuthService.hasExplicitRole) and
-// probes the backend on launch, so tests wrap DispatcherApp in its provider
-// and expect the login gate — not the old single-screen lookup UI.
+// The app gates on authentication (AuthService.hasExplicitRole) and probes
+// the backend on launch, so tests wrap DispatcherApp in its provider and
+// expect the credential login gate.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dispatcher/main.dart';
@@ -25,10 +25,12 @@ Future<void> _pump(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('shows the role-selection gate on first run', (tester) async {
+  testWidgets('shows the sign-in gate on first run', (tester) async {
     await _pump(tester);
-    expect(find.text('Select Your Role'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
     expect(find.text('Emergency Operations System'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Username'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
   });
 
   testWidgets('an unreachable API is reported in the status bar, not hidden',
@@ -39,13 +41,13 @@ void main() {
     expect(find.textContaining('unreachable'), findsWidgets);
   });
 
-  testWidgets('selecting Dispatcher reveals name entry (gate is interactive)',
+  testWidgets('empty credentials show an inline error, not a crash',
       (tester) async {
     await _pump(tester);
-    await tester.scrollUntilVisible(find.text('Manage dispatches'), 200,
+    await tester.scrollUntilVisible(find.text('Continue'), 200,
         scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Manage dispatches'));
+    await tester.tap(find.text('Continue'));
     await tester.pump();
-    expect(find.text('Your Name *'), findsOneWidget);
+    expect(find.text('Enter your username and password.'), findsOneWidget);
   });
 }

@@ -19,6 +19,7 @@ import 'dashboard_screen.dart';
 import 'inbound_call_screen.dart';
 import 'lookup_screen.dart';
 import 'map_screen.dart';
+import 'mapper_screen.dart';
 import 'create_dispatch_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
@@ -234,6 +235,12 @@ class _MainShellState extends State<_MainShell> {
       roles: [UserRole.dispatcher, UserRole.admin],
     ),
     _NavItem(
+      icon: Icons.edit_location_rounded,
+      activeIcon: Icons.edit_location_rounded,
+      label: 'Field',
+      roles: [UserRole.mapper],
+    ),
+    _NavItem(
       icon: Icons.add_task_rounded,
       activeIcon: Icons.add_task_rounded,
       label: 'Create',
@@ -327,6 +334,7 @@ class _MainShellState extends State<_MainShell> {
           if (!auth.hasExplicitRole)
             Positioned.fill(
               child: LoginScreen(
+                baseUrl: widget.baseUrl ?? _settings.apiBaseUrl,
                 onLoginComplete: () => setState(() {}),
               ),
             ),
@@ -401,6 +409,8 @@ class _MainShellState extends State<_MainShell> {
       if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
       // Settlement map (index 3 for dispatcher/admin)
       if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
+      // Field work (mapper only): offline map, GPS walk, capture, sync
+      if (auth.isMapper) const MapperScreen(),
       // Create (index 3 for dispatcher/admin)
       if (auth.isDispatcher) CreateDispatchScreen(baseUrl: baseUrl, role: role),
       // History (index 4 for dispatcher/admin)

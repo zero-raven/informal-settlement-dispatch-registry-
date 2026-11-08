@@ -1,14 +1,21 @@
 // Authentication & Role Management Service
-
+//
+// Real authentication: login exchanges credentials for a server-signed
+// bearer token (POST /v1/auth/login). The role comes from the server's
+// response — it is never chosen on the device. The token is persisted
+// and sent as `Authorization: Bearer …` on every privileged request;
+// the server verifies it and derives the role from it.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
 
 enum UserRole {
   caller('caller', 'Caller (Citizen)'),
   dispatcher('dispatcher', 'Dispatcher'),
-  admin('admin', 'Administrator');
+  admin('admin', 'Administrator'),
+  mapper('mapper', 'Mapper (Field)');
 
   const UserRole(this.value, this.displayName);
   final String value;
@@ -41,30 +48,24 @@ class AuthService extends ChangeNotifier {
   String get authToken => _authToken;
   String get userName => _userName;
   bool get isInitialized => _isInitialized;
+  bool get isLoggedIn => _authToken.isNotEmpty;
   bool get isDispatcher => _currentRole == UserRole.dispatcher || _currentRole == UserRole.admin;
+  bool get isMapper => _currentRole == UserRole.mapper;
   bool get isAdmin => _currentRole == UserRole.admin;
   bool get isCaller => _currentRole == UserRole.caller;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
     final prefs = await SharedPreferences.getInstance();
-    
-    // Load or generate device hash
     _deviceHash = prefs.getString(_deviceHashKey) ?? _generateDeviceHash();
     if (!prefs.containsKey(_deviceHashKey)) {
       await prefs.setString(_deviceHashKey, _deviceHash);
     }
-
-    // Load role
     final roleStr = prefs.getString(_roleKey);
     _currentRole = roleStr != null ? UserRole.fromString(roleStr) : UserRole.caller;
     _hasExplicitRole = roleStr != null;
-
-    // Load token and user name
     _authToken = prefs.getString(_tokenKey) ?? '';
     _userName = prefs.getString(_userNameKey) ?? '';
-
     _isInitialized = true;
     notifyListeners();
   }
@@ -75,42 +76,55 @@ class AuthService extends ChangeNotifier {
     return base64Url.encode(bytes).substring(0, 16);
   }
 
-  Future<void> setRole(UserRole role, {String userName = ''}) async {
+  /// Log in with credentials. The server decides the role; the device
+  /// only stores what it is given. Returns true on success.
+  Future<bool> login(String username, String password, String baseUrl) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/v1/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'password': password}),
+    ).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) return false;
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
-    _currentRole = role;
+    _authToken = body['token'] as String;
+    _userName = body['username'] as String;
+    _currentRole = UserRole.fromString(body['role'] as String);
     _hasExplicitRole = true;
-    await prefs.setString(_roleKey, role.value);
-    
-    if (userName.isNotEmpty) {
-      _userName = userName;
-      await prefs.setString(_userNameKey, userName);
-    }
-    
-    // Generate new mock token for role change
-    _authToken = _generateMockToken(role);
     await prefs.setString(_tokenKey, _authToken);
-    
+    await prefs.setString(_userNameKey, _userName);
+    await prefs.setString(_roleKey, _currentRole.value);
     notifyListeners();
+    return true;
   }
 
-  String _generateMockToken(UserRole role) {
-    final payload = {
-      'sub': 'user_${_deviceHash}',
-      'role': role.value,
-      'device_hash': _deviceHash,
-      'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      'exp': (DateTime.now().add(const Duration(days: 30))).millisecondsSinceEpoch ~/ 1000,
-    };
-    // Mock JWT-like token (not real JWT, just demo)
-    final encoded = base64Url.encode(utf8.encode(jsonEncode(payload)));
-    return 'mock.$encoded.signature';
+  /// Exchange the current token for a fresh one (call on 401 / expiry).
+  Future<bool> refresh(String baseUrl) async {
+    if (_authToken.isEmpty) return false;
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/v1/auth/refresh'),
+        headers: {'Authorization': 'Bearer $_authToken'},
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        await logout();
+        return false;
+      }
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      _authToken = body['token'] as String;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, _authToken);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Map<String, String> getAuthHeaders() {
     return {
       'Content-Type': 'application/json',
-      'X-Role': _currentRole.value,
-      'Authorization': 'Bearer $_authToken',
+      if (_authToken.isNotEmpty) 'Authorization': 'Bearer $_authToken',
       'X-Device-Hash': _deviceHash,
     };
   }
@@ -127,11 +141,9 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  String getRoleDisplayName() {
-    return _currentRole.displayName;
-  }
+  String getRoleDisplayName() => _currentRole.displayName;
 
   List<UserRole> getAvailableRoles() {
-    return [UserRole.caller, UserRole.dispatcher, UserRole.admin];
+    return [UserRole.caller, UserRole.dispatcher, UserRole.admin, UserRole.mapper];
   }
 }
