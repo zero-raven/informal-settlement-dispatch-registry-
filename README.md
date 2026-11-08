@@ -52,9 +52,9 @@ A semester project for mapping informal settlements and managing emergency dispa
 |--------|-----------|-------------|
 | **Registry** | `GET /v1/zones`, `GET /v1/structures`, `GET /v1/structures/:code` | Zone/structure catalog with GeoJSON |
 | **Dispatch** | `POST /v1/dispatch/lookup`, `POST /v1/dispatch/assign`, `POST /v1/dispatch/outcome`, `GET /v1/dispatch/stats`, `GET /v1/dispatch/recent` | Foot/vehicle routing, responder assignment, outcome tracking |
-| **Grievance** | `POST /v1/grievances`, `GET /v1/grievances`, `POST /v1/grievances/:id/triage` | Emergency call intake, TF-IDF/LinearSVC auto-classification, state machine |
+| **Grievance** | `POST /v1/grievances`, `GET /v1/grievances`, `POST /v1/grievances/:id/triage` | Emergency call intake, rule-based triage state machine (no ML classifier) |
 | **Sync** | `GET /v1/sync/bootstrap?zone=`, `GET /v1/tasks`, `POST /v1/tasks/:id/complete` | Offline-first sync, mapper task queue |
-| **Auth** | Role via `X-Role` header: `caller` \| `dispatcher` \| `admin` \| `reviewer` | Mock OIDC flow, device-hash identity |
+| **Auth** | Role via `X-Role` header: `caller` \| `dispatcher` \| `admin` \| `reviewer` | Mock role header (`X-Role`) + device-hash identity — NOT production auth; OIDC is not implemented |
 
 ### Frontend (Flutter)
 - **Role-based UI**: Caller sees only Calls tab; Dispatcher/Admin see all 6 tabs
@@ -89,7 +89,7 @@ DB_PATH=/tmp/registry.db PORT=8090 node services/registry-api/src/server.js
 # → "registry-api listening on :8090"
 ```
 
-Pre-seeds: Zone C4 (center 12.9700, 77.5890, radius 2000m), 5 structures (SLR-C41001..C41005)
+Note: a fresh SQLite DB starts empty. Seed data (Zone C4 + 5 structures) lives in the Postgres migration `services/registry-api/migrations/000_init.sql`, not in the SQLite runtime.
 
 ### 2. Run Frontend (Linux)
 ```bash
@@ -154,7 +154,7 @@ clg/el/
 │   ├── dispatcher/          # Flutter app (this project)
 │   │   ├── lib/
 │   │   │   ├── main.dart           # App entry, role-based routing
-│   │   │   ├── auth_service.dart   # Mock OIDC, device_hash, roles
+│   │   │   ├── auth_service.dart   # Mock role header + device_hash (not OIDC)
 │   │   │   ├── login_screen.dart   # Role selection UI
 │   │   │   ├── inbound_call_screen.dart  # Calls tab (caller/dispatcher)
 │   │   │   ├── dashboard_screen.dart     # Stats, recent, quick actions
@@ -229,7 +229,7 @@ cd apps/dispatcher && flutter test
 ### Docker (Optional)
 ```bash
 docker-compose up -d
-# registry-api on :8090, dispatcher-web on :8091 (if configured)
+# registry-api on :8090 (dispatcher is a Flutter binary/APK, not a container)
 ```
 
 ---

@@ -6,6 +6,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapper/core/local_store.dart';
 import 'package:mapper/main.dart';
@@ -50,6 +51,10 @@ void main() {
   });
 
   testWidgets('mapper app boots and shows the capture screen', (tester) async {
+    // Tall viewport: the capture button sits below the classification card.
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(MapperApp(store: store));
     await tester.pump();
     expect(find.text('Mapper — offline capture'), findsOneWidget);
@@ -57,6 +62,9 @@ void main() {
   });
 
   testWidgets('capturing from the UI works with no network', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(MapperApp(store: store));
     await tester.pump();
 

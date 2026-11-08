@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'design_system.dart';
 import 'components.dart';
-import 'models.dart';
 
 class InboundCallScreen extends StatefulWidget {
   final String? baseUrl;
@@ -585,13 +584,6 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
       'high' => DSColors.warning,
       'medium' => DSColors.info,
       'low' => DSColors.success,
-      _ => DSColors.textTertiary,
-    };
-
-    final statusColor = switch (call.status) {
-      'pending' => DSColors.warning,
-      'dispatched' => DSColors.info,
-      'completed' => DSColors.success,
       _ => DSColors.textTertiary,
     };
 

@@ -201,6 +201,11 @@ class Registry {
         actor TEXT,
         at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS field_version (
+        entity_id TEXT NOT NULL, field TEXT NOT NULL,
+        lamport INTEGER NOT NULL, site_id TEXT NOT NULL,
+        PRIMARY KEY (entity_id, field)
+      );
     `);
   }
 
@@ -244,7 +249,10 @@ class Registry {
       FROM structure
       WHERE deleted_at IS NULL AND id <> ?
         AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
-    `).all(newId, s.lat - thresholdM, s.lat + thresholdM, s.lon - thresholdM, s.lon + thresholdM);
+    `).all(newId,
+      s.lat - thresholdM / 111320, s.lat + thresholdM / 111320,
+      s.lon - thresholdM / (111320 * Math.cos(s.lat * Math.PI / 180)),
+      s.lon + thresholdM / (111320 * Math.cos(s.lat * Math.PI / 180)));
 
     let best = null;
     for (const r of rows) {
@@ -690,10 +698,42 @@ class Registry {
             continue;
           }
           // Confirmed structure: field-level CRDT merge is allowed.
-          const merged = mergeFields(s._fields ?? {}, op.payload?.fields ?? {}, 'structure');
-          this.updateStructure(op.entityId, {
-            status: 'surveyed', structureType: merged.structure_type?.value,
-          });
+          // Validate against the mergeable allow-list (throws on identity
+          // fields), then apply each field whose Lamport clock wins.
+          mergeFields({}, op.payload?.fields ?? {}, 'structure');
+          const FIELD_MAP = {
+            structure_type: 'structureType',
+            non_residential_subtype: 'nonResidentialSubtype',
+            entrance_independent: 'entranceIndependent',
+            floors_estimated: 'floorsEstimated',
+            material_primary: 'materialPrimary',
+            occupancy_estimate: 'occupancyEstimate',
+            is_shared_wall: 'isSharedWall',
+          };
+          const patch = {};
+          for (const [field, inc] of Object.entries(op.payload?.fields ?? {})) {
+            const cur = this.db.prepare(
+              'SELECT lamport, site_id FROM field_version WHERE entity_id = ? AND field = ?'
+            ).get(op.entityId, field);
+            const wins = !cur || inc.lamport > cur.lamport ||
+              (inc.lamport === cur.lamport && String(inc.siteId) >= String(cur.site_id));
+            if (!wins) continue;
+            this.db.prepare(
+              `INSERT INTO field_version (entity_id, field, lamport, site_id) VALUES (?, ?, ?, ?)
+               ON CONFLICT(entity_id, field) DO UPDATE SET lamport = excluded.lamport, site_id = excluded.site_id`
+            ).run(op.entityId, field, inc.lamport, inc.siteId ?? mapperId);
+            if (FIELD_MAP[field]) {
+              let v = inc.value;
+              if (field === 'entrance_independent' || field === 'is_shared_wall') v = v ? 1 : 0;
+              patch[FIELD_MAP[field]] = v;
+            }
+            this.recordAssertion({
+              entityId: op.entityId, field, value: inc.value,
+              evidenceClass: 'ground_truth', source: 'mapper_survey',
+              observedBy: `mapper:${mapperId}`,
+            });
+          }
+          if (Object.keys(patch).length) this.updateStructure(op.entityId, patch);
           const after = this.getStructure(op.entityId);
           this.recordReceipt({
             clientOpId: op.clientOpId, clientSeq: op.clientSeq, mapperId,
@@ -729,9 +769,23 @@ class Registry {
 
   /** Cursor-based pull. Server time is authoritative; client clocks are not trusted. */
   pull({ since = null, zone = 'C4', limit = 1000 } = {}) {
-    const structures = this.db
-      .prepare('SELECT * FROM structure ORDER BY updated_at ASC, id ASC LIMIT ?')
-      .all(limit);
+    // Cursor format: srv:<updated_at>:<id>. Only rows after it are returned.
+    let sinceTs = null; let sinceId = null;
+    if (since && String(since).startsWith('srv:')) {
+      const rest = String(since).slice(4);
+      const sep = rest.lastIndexOf(':');
+      sinceTs = rest.slice(0, sep);
+      sinceId = rest.slice(sep + 1);
+    }
+    let structures;
+    if (sinceTs) {
+      structures = this.db.prepare(
+        `SELECT * FROM structure WHERE updated_at > ? OR (updated_at = ? AND id > ?)
+         ORDER BY updated_at ASC, id ASC LIMIT ?`).all(sinceTs, sinceTs, sinceId || '', limit);
+    } else {
+      structures = this.db.prepare(
+        'SELECT * FROM structure ORDER BY updated_at ASC, id ASC LIMIT ?').all(limit);
+    }
     const changes = [];
     for (const s of structures) {
       changes.push({

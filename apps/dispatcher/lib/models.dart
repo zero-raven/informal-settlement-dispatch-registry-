@@ -10,7 +10,7 @@ class DispatchStats {
   final int total;
   final int todayStarted;
   final double successRate;
-  final int avgResponseTime;
+  final int? avgResponseTime;
 
   DispatchStats({
     required this.active,
@@ -32,7 +32,7 @@ class DispatchStats {
       total: json['total'] ?? 0,
       todayStarted: json['today_started'] ?? 0,
       successRate: (json['success_rate'] ?? 0).toDouble(),
-      avgResponseTime: json['avg_response_time'] ?? 0,
+      avgResponseTime: json['avg_response_time'] as int?,
     );
   }
 

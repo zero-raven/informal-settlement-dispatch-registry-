@@ -360,8 +360,6 @@ class _CreateDispatchScreenState extends State<CreateDispatchScreen> {
   }
 
   Widget _buildStructureInfo(StructureInfo info) {
-    final statusColor = _getStatusColor(info.structure['status'] as String?);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

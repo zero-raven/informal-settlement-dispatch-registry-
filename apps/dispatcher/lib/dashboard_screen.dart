@@ -26,7 +26,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final String _api = 'http://127.0.0.1:8090';
-  final String _graph = 'http://127.0.0.1:8092';
 
   DispatchStats? _stats;
   List<DispatchItem> _recentDispatches = [];
@@ -295,7 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         _buildStatCard(
           label: 'Avg Response',
-          value: '${_stats!.avgResponseTime}m',
+          value: _stats!.avgResponseTime == null ? '—' : '${_stats!.avgResponseTime}m',
           icon: Icons.timer_rounded,
           iconColor: DSColors.info,
           gradient: LinearGradient(
@@ -304,7 +303,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             end: Alignment.bottomRight,
           ),
           subtitle: 'Time to destination',
-          trend: _stats!.avgResponseTime <= 15 ? 'up' : _stats!.avgResponseTime <= 30 ? 'neutral' : 'down',
+          trend: _stats!.avgResponseTime == null
+              ? 'neutral'
+              : _stats!.avgResponseTime! <= 15 ? 'up' : _stats!.avgResponseTime! <= 30 ? 'neutral' : 'down',
         ),
       ],
     );

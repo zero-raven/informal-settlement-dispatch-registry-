@@ -1,9 +1,10 @@
 // Settings Screen for Dispatcher App
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'design_system.dart';
 import 'components.dart';
 import 'models.dart';
@@ -12,12 +13,14 @@ class SettingsScreen extends StatefulWidget {
   final String? baseUrl;
   final String role;
   final AppSettings initialSettings;
+  final ValueChanged<AppSettings>? onSettingsChanged;
 
   const SettingsScreen({
     super.key,
     this.baseUrl,
     this.role = 'dispatcher',
     required this.initialSettings,
+    this.onSettingsChanged,
   });
 
   @override
@@ -38,7 +41,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('app_settings', _settings.toJson().toString());
+      await prefs.setString('app_settings', jsonEncode(_settings.toJson()));
+      widget.onSettingsChanged?.call(_settings);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -446,9 +450,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData prefixIcon,
     TextInputType? keyboardType,
   }) {
-    final controller = TextEditingController(text: initialValue);
-    return TextField(
-      controller: controller,
+    // TextFormField (not a controller created in build) so editing a URL
+    // on a phone does not lose the cursor on every rebuild.
+    return TextFormField(
+      initialValue: initialValue,
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,

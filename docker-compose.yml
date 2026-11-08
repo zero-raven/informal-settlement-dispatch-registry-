@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   registry-api:
     build: ./services/registry-api
@@ -9,9 +8,6 @@ services:
       - DB_PATH=/data/registry.db
     volumes:
       - ./data:/data
-  dispatcher:
-    build: ./apps/dispatcher
-    ports:
-      - "8080:8080"
-    depends_on:
-      - registry-api
+  # The dispatcher is a Flutter app (Linux binary / Android APK), not a
+  # container service. Build it with flutter build linux / flutter build apk.
+  # It was previously listed here with a Dockerfile that does not exist.

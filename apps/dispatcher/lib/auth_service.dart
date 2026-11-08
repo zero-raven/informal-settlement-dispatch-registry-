@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -34,8 +33,10 @@ class AuthService extends ChangeNotifier {
   String _authToken = '';
   String _userName = '';
   bool _isInitialized = false;
+  bool _hasExplicitRole = false;
 
   UserRole get currentRole => _currentRole;
+  bool get hasExplicitRole => _hasExplicitRole;
   String get deviceHash => _deviceHash;
   String get authToken => _authToken;
   String get userName => _userName;
@@ -58,6 +59,7 @@ class AuthService extends ChangeNotifier {
     // Load role
     final roleStr = prefs.getString(_roleKey);
     _currentRole = roleStr != null ? UserRole.fromString(roleStr) : UserRole.caller;
+    _hasExplicitRole = roleStr != null;
 
     // Load token and user name
     _authToken = prefs.getString(_tokenKey) ?? '';
@@ -76,6 +78,7 @@ class AuthService extends ChangeNotifier {
   Future<void> setRole(UserRole role, {String userName = ''}) async {
     final prefs = await SharedPreferences.getInstance();
     _currentRole = role;
+    _hasExplicitRole = true;
     await prefs.setString(_roleKey, role.value);
     
     if (userName.isNotEmpty) {
@@ -118,6 +121,7 @@ class AuthService extends ChangeNotifier {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userNameKey);
     _currentRole = UserRole.caller;
+    _hasExplicitRole = false;
     _authToken = '';
     _userName = '';
     notifyListeners();

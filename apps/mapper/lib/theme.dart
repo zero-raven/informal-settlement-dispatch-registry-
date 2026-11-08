@@ -11,10 +11,10 @@ final darkTheme = ThemeData(
     bodyLarge: TextStyle(fontFamily: 'FiraSans', color: Color(0xFFF8FAFC)),
   ),
 );
-const glassDark = BoxDecoration(
-  color: Color(0x331E293B), // muted glass
+final glassDark = BoxDecoration(
+  color: const Color(0x331E293B), // muted glass
   borderRadius: BorderRadius.all(Radius.circular(16)),
-  border: Border.all(color: Color(0xFF334155), width: 1),
-  boxShadow: [BoxShadow(color: Color(0x3322C55E), blurRadius: 12, spreadRadius: 2)],
+  border: Border.all(color: const Color(0xFF334155), width: 1),
+  boxShadow: const [BoxShadow(color: Color(0x3322C55E), blurRadius: 12, spreadRadius: 2)],
 );
 const gradientAccent = LinearGradient(colors: [Color(0xFF22C55E), Color(0xFF6EE7FF)]);

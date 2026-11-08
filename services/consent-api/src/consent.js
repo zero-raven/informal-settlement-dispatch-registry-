@@ -197,10 +197,10 @@ class ConsentStore {
       context_present: true,
       granted_scopes: scopes,
       resident_alias: resident.display_alias,
-      fields: [
-        { label: 'Preferred language', value: 'Kannada' },
-        { label: 'Access note', value: 'gate on the north side' },
-      ],
+      // No occupant detail is stored in this service; returning invented
+      // fields would be fabrication. Fields stay empty until a real,
+      // consented detail store exists.
+      fields: [],
     };
   }
 

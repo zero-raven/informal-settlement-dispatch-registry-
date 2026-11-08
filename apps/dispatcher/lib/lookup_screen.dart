@@ -425,7 +425,19 @@ class _LookupScreenState extends State<LookupScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_outcomeNote != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: DSSpacing.md),
+            child: Semantics(
+              label: 'Outcome feedback',
+              child: Text(_outcomeNote!, style: DSTypography.bodyMedium),
+            ),
+          ),
+        ],
+        Row(
       children: [
         Expanded(
           child: DSSecondaryButton(
@@ -441,6 +453,8 @@ class _LookupScreenState extends State<LookupScreen> {
             icon: Icons.report_problem_rounded,
             onPressed: () => _recordOutcome('failed'),
           ),
+        ),
+      ],
         ),
       ],
     );

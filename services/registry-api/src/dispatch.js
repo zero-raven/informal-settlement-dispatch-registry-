@@ -80,7 +80,7 @@ class InternalBackend extends DispatchBackend {
       supportsOfflineCache: true,
       supportsZoneGating: true,
       supportsExternalHandoff: false,
-      supportsOccupantContext: true,
+      supportsOccupantContext: false,
     };
   }
 
@@ -94,7 +94,8 @@ class InternalBackend extends DispatchBackend {
     const today = new Date().toISOString().split('T')[0];
     const todayStarted = db.prepare("SELECT COUNT(*) as c FROM dispatcher_responders WHERE at LIKE ?").get(`${today}%`).c;
     const pendingReview = failed; // failed outcomes need review
-    const avgResponseTime = 15; // placeholder
+    // No timing data is recorded yet; report null rather than a fabricated value.
+    const avgResponseTime = null;
 
     return {
       total,
@@ -176,7 +177,7 @@ class InternalBackend extends DispatchBackend {
     };
 
     if (responderLocation && this.router) {
-      result.route = this.router(
+      result.route = await this.router(
         { lat: responderLocation.lat, lon: responderLocation.lon },
         destination,
         { profile },
@@ -186,6 +187,10 @@ class InternalBackend extends DispatchBackend {
   }
 
   async dispatch(code, context = {}) {
+    // Assignment must pass the same gates as lookup: a real, finalized,
+    // non-superseded structure inside a dispatch-enabled zone (C7).
+    const check = await this.lookup(code, null, 'foot');
+    if (check.error) return check;
     const id = crypto.randomUUID();
     const at = new Date().toISOString();
     this.responders.push({ dispatch_id: id, code, at, ...context });
@@ -203,6 +208,18 @@ class InternalBackend extends DispatchBackend {
    * (C8) and may supersede a mapper's record.
    */
   async outcome(dispatchId, result = {}) {
+    const existing = this.registry.db.prepare(
+      'SELECT * FROM dispatcher_responders WHERE dispatch_id = ?').get(dispatchId);
+    if (!existing) {
+      return { error: 'dispatch_not_found', dispatch_id: dispatchId, http: 404 };
+    }
+    const OUTCOME_ALIASES = { reached: 'confirmed', success: 'confirmed', confirmed: 'confirmed', failed: 'failed' };
+    const rawOutcome = result.outcome ?? 'confirmed';
+    const outcome = OUTCOME_ALIASES[rawOutcome];
+    if (!outcome) {
+      return { error: 'invalid_outcome', outcome: rawOutcome, http: 400 };
+    }
+    result = { ...result, outcome };
     const rec = { dispatch_id: dispatchId, ...result, at: new Date().toISOString() };
     this.outcomes.push(rec);
     // Persist to database

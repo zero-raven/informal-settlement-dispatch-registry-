@@ -34,8 +34,25 @@ function json(res, code, body) {
 function createServer({
   registry = new Registry(process.env.DB_PATH || ':memory:'),
   backendName = process.env.DISPATCH_BACKEND || 'internal',
-  router = process.env.GRAPH_URL ? null : null,
+  router = null,
 } = {}) {
+  // Optional graph-service routing: when GRAPH_URL is set, lookup asks the
+  // graph service for a route. Any failure degrades to route:null — the
+  // destination is still returned, never a fabricated path.
+  const graphUrl = process.env.GRAPH_URL || null;
+  if (!router && graphUrl) {
+    router = async (from, to, opts) => {
+      try {
+        const res = await fetch(`${graphUrl.replace(/\/$/, '')}/v1/graph/route`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from, to, profile: opts?.profile || 'foot' }),
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    };
+  }
   // PRD 3: the backend is configuration-selected, and the core depends only on
   // the interface. A future external adapter registers here unchanged.
   const backend = createBackend(backendName, { registry, router });
@@ -168,7 +185,9 @@ function createServer({
           return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
         }
         const b = await body();
-        return json(res, 200, await backend.dispatch(b.code, b));
+        const assigned = await backend.dispatch(b.code, b);
+        if (assigned.error) return json(res, assigned.http || 400, assigned);
+        return json(res, 200, assigned);
       }
 
       if (req.method === 'POST' && url.pathname === '/v1/dispatch/outcome') {
@@ -176,7 +195,9 @@ function createServer({
           return json(res, 403, { error: 'forbidden', detail: 'dispatcher role required' });
         }
         const b = await body();
-        return json(res, 200, await backend.outcome(b.dispatch_id, b));
+        const done = await backend.outcome(b.dispatch_id, b);
+        if (done.error) return json(res, done.http || 400, done);
+        return json(res, 200, done);
       }
 
       // ---- mapper worklist (two-speed, PRD 6.4) --------------------------
@@ -287,15 +308,29 @@ function createServer({
         // Cross-check: >25m from registered structure -> dedup candidate, not direct assertion
         let offsetM = null;
         let crossCheckAction = 'asserted';
+        let dedupCandidateId = null;
         if (structureCode) {
           const s = registry.getByCode(structureCode);
-          if (s) {
-            const dx = (reportedLocation.lon - s.lon) * 111320 * Math.cos((reportedLocation.lat * Math.PI) / 180);
-            const dy = (reportedLocation.lat - s.lat) * 110540;
-            offsetM = Math.hypot(dx, dy);
-            if (offsetM > 25) {
-              crossCheckAction = 'dedup_candidate';
-            }
+          if (!s) {
+            return json(res, 404, { error: 'structure_not_found', code: structureCode });
+          }
+          const dx = (reportedLocation.lon - s.lon) * 111320 * Math.cos((reportedLocation.lat * Math.PI) / 180);
+          const dy = (reportedLocation.lat - s.lat) * 110540;
+          offsetM = Math.hypot(dx, dy);
+          if (offsetM > 25) {
+            crossCheckAction = 'dedup_candidate';
+            // A report far from the registered location must not assert a
+            // wrong structure: create a human-review dedup record instead.
+            // The grievance has no second structure to pair with, so record
+            // it as a verification event + open dedup queue entry is not
+            // possible without a pair; instead open a mapper task flagged
+            // for dedup review, linked to the grievance.
+            dedupCandidateId = registry.enqueueTask({
+              structure_id: s.id, zone: 'C4', kind: 'grievance_dedup_review',
+              signal: 'fast', priority: 1,
+              note: `Grievance report ${offsetM.toFixed(1)}m from ${structureCode}; possible wrong structure`,
+              payload: { grievance_id: grievanceId, structure_code: structureCode, offset_m: offsetM, synthetic: true },
+            });
           }
         }
         // Store grievance in SQLite (synthetic schema extension)
@@ -323,6 +358,7 @@ function createServer({
           state: 'received',
           weight, source: 'resident_report',
           cross_check_action: crossCheckAction,
+          dedup_task_id: dedupCandidateId,
           offset_m: offsetM,
           synthetic: true,
         });
@@ -338,7 +374,22 @@ function createServer({
         const params = [];
         const conditions = [];
         if (stateFilter) { conditions.push('state = ?'); params.push(stateFilter); }
-        if (zoneFilter) { conditions.push('(structure_code IN (SELECT id FROM structure WHERE ... ) OR 1=1)'); }
+        if (zoneFilter) {
+          const zone = registry.db.prepare('SELECT * FROM zone WHERE code = ?').get(zoneFilter);
+          if (!zone || zone.lat == null || zone.radius_m == null) {
+            return json(res, 200, { items: [], synthetic: true, note: 'Unknown zone.' });
+          }
+          const codes = new Set(
+            registry.db.prepare('SELECT code, lat, lon FROM structure').all()
+              .filter((s) => {
+                const dx = (s.lon - zone.lon) * 111320 * Math.cos(zone.lat * Math.PI / 180);
+                const dy = (s.lat - zone.lat) * 110540;
+                return Math.hypot(dx, dy) <= zone.radius_m;
+              }).map((s) => s.code));
+          conditions.push('structure_code IN (' + [...codes].map(() => '?').join(',') + ')');
+          if (!codes.size) conditions[conditions.length - 1] = '1 = 0';
+          else params.push(...codes);
+        }
         if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
         const rows = registry.db.prepare(sql).all(...params);
         return json(res, 200, { items: rows, synthetic: true, note: 'Synthetic grievance data only; no real-world validation claimed.' });
@@ -364,11 +415,10 @@ function createServer({
         // Corroborated criteria: evidence weight >= 0.6 OR dispatch_feedback (1.0) OR combined >= 0.7
         let newWeight = row.weight;
         let newState = targetState;
-        if (targetState === 'corroborated' || targetState === 'corroborating') {
-          // Evidence weights (synthetic assignment based on source, not client claim)
-          const weights = { resident_report: 0.1, grievance_corroborated: 0.7, mapper_survey: 0.6, imagery_diff: 0.4, dispatch_feedback: 1.0 };
-          newWeight = weights[b.source] ?? weights[b.evidence_class] ?? row.weight;
-        }
+        const weights = { resident_report: 0.1, grievance_corroborated: 0.7, mapper_survey: 0.6, imagery_diff: 0.4, dispatch_feedback: 1.0 };
+        // Evidence source may be supplied on any transition; it determines
+        // the weight used for the corroboration check below.
+        newWeight = weights[b.source] ?? weights[b.evidence_class] ?? row.weight;
         if (targetState === 'confirmed') {
           // Confirmed requires weight >= 0.5 (per M7 design doc)
           if (newWeight < 0.5) {

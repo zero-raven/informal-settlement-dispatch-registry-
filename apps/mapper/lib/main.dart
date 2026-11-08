@@ -55,6 +55,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
   bool _entranceIndependent = true;
   bool _sharedWall = false;
 
+  // Editable capture fields. Defaults are the campus pilot centre only as
+  // a starting point — the mapper must confirm/adjust them on site.
+  // Previously coordinates, floors and materials were silently fabricated.
+  final _latController = TextEditingController(text: '12.9700');
+  final _lonController = TextEditingController(text: '77.5900');
+  final _floorsController = TextEditingController(text: '1');
+  final _materialController = TextEditingController(text: 'brick_plaster');
+
+  @override
+  void dispose() {
+    _latController.dispose();
+    _lonController.dispose();
+    _floorsController.dispose();
+    _materialController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -94,21 +111,30 @@ class _CaptureScreenState extends State<CaptureScreen> {
   Future<void> _capture() async {
     final s = _store;
     if (s == null) return;
+    final lat = double.tryParse(_latController.text.trim());
+    final lon = double.tryParse(_lonController.text.trim());
+    if (lat == null || lon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid latitude and longitude')),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
-      // A real build reads the device GPS here. The capture path is identical
-      // either way, which is the point: the app never depends on a fix arriving
-      // before the mapper can record an observation.
+      // No GPS plugin is bundled, so coordinates are entered/verified by
+      // the mapper. They are never silently offset from a counter.
       await s.captureStructure(
-        lat: 12.9700 + _structures * 0.0001,
-        lon: 77.5900 + _structures * 0.0001,
+        lat: lat,
+        lon: lon,
         type: _type,
-        entranceLat: 12.96995 + _structures * 0.0001,
-        entranceLon: 77.58995 + _structures * 0.0001,
+        entranceLat: lat,
+        entranceLon: lon,
         entranceIndependent: _entranceIndependent,
         isSharedWall: _sharedWall,
-        floorsEstimated: 2,
-        materialPrimary: 'brick_plaster',
+        floorsEstimated: int.tryParse(_floorsController.text.trim()) ?? 1,
+        materialPrimary: _materialController.text.trim().isEmpty
+            ? 'unknown'
+            : _materialController.text.trim(),
         services: [
           ServiceRecord(
             structureLocalId: '',
@@ -227,6 +253,29 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   DropdownMenuItem(value: t, child: Text(t.label)),
               ],
               onChanged: (v) => setState(() => _type = v ?? _type),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _latController,
+              keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+              decoration: const InputDecoration(labelText: 'Latitude', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _lonController,
+              keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+              decoration: const InputDecoration(labelText: 'Longitude', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _floorsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Floors (estimated)', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _materialController,
+              decoration: const InputDecoration(labelText: 'Material (primary)', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 8),
             SwitchListTile(

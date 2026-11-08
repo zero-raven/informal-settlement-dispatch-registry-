@@ -22,9 +22,16 @@ import 'create_dispatch_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 
-void main() => runApp(
-  ChangeNotifierProvider(create: (_) => AuthService(), child: const DispatcherApp()),
-);
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final auth = AuthService();
+  // Restore the persisted role/device hash before first frame. Previously
+  // initialize() was never called, so every launch reset to caller.
+  await auth.initialize();
+  runApp(
+    ChangeNotifierProvider<AuthService>.value(value: auth, child: const DispatcherApp()),
+  );
+}
 
 const String kDefaultApiUrl = 'http://127.0.0.1:8090';
 const String kDefaultGraphUrl = 'http://127.0.0.1:8092';
@@ -54,7 +61,8 @@ class _DispatcherAppState extends State<DispatcherApp> {
       final prefs = await SharedPreferences.getInstance();
       final settingsStr = prefs.getString('app_settings');
       if (settingsStr != null) {
-        _settings = AppSettings();
+        _settings = AppSettings.fromJson(
+          jsonDecode(settingsStr) as Map<String, dynamic>);
       }
       _themeMode = _settings.themeMode;
     } catch (_) {
@@ -198,7 +206,6 @@ class _MainShellState extends State<_MainShell> {
   late AppSettings _settings;
   String? _backendStatus;
   bool _isProbing = false;
-  bool _showLogin = true;
 
   final List<_NavItem> _allNavItems = [
     _NavItem(
@@ -265,10 +272,15 @@ class _MainShellState extends State<_MainShell> {
         headers: auth.getAuthHeaders(),
       ).timeout(const Duration(seconds: 5));
 
-      if (res.statusCode == 200 && mounted) {
-        final c = jsonDecode(res.body) as Map<String, dynamic>;
-        setState(() => _backendStatus =
-            'Backend: ${c['backend']} · Profiles: ${(c['profiles'] as List).join(', ')}');
+      if (mounted) {
+        if (res.statusCode == 200) {
+          final c = jsonDecode(res.body) as Map<String, dynamic>;
+          setState(() => _backendStatus =
+              'Backend: ${c['backend']} · Profiles: ${(c['profiles'] as List).join(', ')}');
+        } else {
+          setState(() => _backendStatus =
+              'Registry API unreachable (HTTP ${res.statusCode})');
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _backendStatus = 'Registry API unreachable');
@@ -305,7 +317,7 @@ class _MainShellState extends State<_MainShell> {
             index: currentIndex,
             children: _buildScreens(auth),
           ),
-          if (auth.currentRole == UserRole.caller && !auth.isInitialized)
+          if (!auth.hasExplicitRole)
             Positioned.fill(
               child: LoginScreen(
                 onLoginComplete: () => setState(() {}),
@@ -313,8 +325,46 @@ class _MainShellState extends State<_MainShell> {
             ),
         ],
       ),
-      bottomNavigationBar: visibleItems.length > 1
-          ? NavigationBar(
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Visible backend status: on a phone the default URL is loopback,
+          // so the user must see at once whether the API URL needs fixing.
+          Semantics(
+            label: 'Backend status: ${_backendStatus ?? 'checking'}',
+            child: InkWell(
+              onTap: _isProbing ? null : _probeBackend,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isProbing)
+                      const SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                    else
+                      Icon(
+                        (_backendStatus ?? '').contains('unreachable')
+                            ? Icons.cloud_off_rounded
+                            : Icons.cloud_done_rounded,
+                        size: 16),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _isProbing
+                            ? 'Checking backend…'
+                            : (_backendStatus ?? 'Backend status unknown — tap to retry'),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (visibleItems.length > 1)
+            NavigationBar(
               selectedIndex: _currentIndex.clamp(0, visibleItems.length - 1),
               onDestinationSelected: (index) => setState(() => _currentIndex = index),
               destinations: visibleItems.map((item) {
@@ -324,8 +374,9 @@ class _MainShellState extends State<_MainShell> {
                   label: item.label,
                 );
               }).toList(),
-            )
-          : null,
+            ),
+        ],
+      ),
     );
   }
 
@@ -346,7 +397,7 @@ class _MainShellState extends State<_MainShell> {
       // History (index 4 for dispatcher/admin)
       if (auth.isDispatcher) HistoryScreen(baseUrl: baseUrl, role: role),
       // Settings (index 5 for dispatcher/admin)
-      if (auth.isDispatcher) SettingsScreen(baseUrl: baseUrl, role: role, initialSettings: _settings),
+      if (auth.isDispatcher) SettingsScreen(baseUrl: baseUrl, role: role, initialSettings: _settings, onSettingsChanged: (s) { _settings = s; _probeBackend(); }),
     ];
   }
 }

@@ -106,7 +106,7 @@ test('full consent returns the context', () => {
   assert.strictEqual(out.context_present, true);
   assert.strictEqual(out.resident_alias, 'res-7f2a');
   assert.ok(out.granted_scopes.includes('share_on_dispatch'));
-  assert.ok(out.fields.length > 0);
+  assert.deepStrictEqual(out.fields, [], 'no occupant detail is stored or fabricated');
 });
 
 test('every disclosure is audited, including the refusals', () => {

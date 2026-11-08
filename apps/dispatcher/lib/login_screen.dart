@@ -324,7 +324,7 @@ class _RoleDescriptionCard extends StatelessWidget {
               children: [
                 Icon(Icons.check_rounded, size: 16, color: color),
                 const SizedBox(width: DSSpacing.sm),
-                Text(p, style: DSTypography.bodySmall),
+                Expanded(child: Text(p, style: DSTypography.bodySmall)),
               ],
             ),
           )),
