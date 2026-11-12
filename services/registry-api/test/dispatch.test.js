@@ -303,3 +303,17 @@ test('MVP: Structure ID -> lookup -> assign -> outcome', async () => {
     assert.strictEqual(tasks.body.items.length, 0, 'a confirmed dispatch opens no task');
   }, { registry });
 });
+
+test('a failed outcome opens a re-survey task for the dispatched structure', async () => {
+  const registry = newRegistry();
+  enableZone(registry);
+  const s = registry.createStructure({ lat: 12.97, lon: 77.59, status: 'surveyed' });
+  const code = registry.issueCode(s, { reviewerId: 'r1' });
+  const b = new InternalBackend({ registry });
+  const { dispatch_id } = await b.dispatch(code, { responder: 'unit-1' });
+  // the app sends no structure_id: the server knows which structure it sent to
+  await b.outcome(dispatch_id, { outcome: 'failed' });
+  const tasks = registry.db.prepare("SELECT * FROM task WHERE kind = 'dispatch_failure'").all();
+  assert.strictEqual(tasks.length, 1);
+  assert.strictEqual(tasks[0].structure_id, s);
+});
