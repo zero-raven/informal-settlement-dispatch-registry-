@@ -96,6 +96,21 @@ void main() {
     await store.close();
   });
 
+  test('markSynced stores the server code on the local structure', () async {
+    final store = await LocalStore.open();
+    final id = await store.captureStructure(
+      lat: 12.97,
+      lon: 77.59,
+      type: StructureType.standaloneDwelling,
+    );
+    await store.markSynced(id, serverId: 'srv-1', code: 'SLR-C41001');
+    final row = (await store.allStructures()).singleWhere((r) => r['local_id'] == id);
+    expect(row['code'], 'SLR-C41001');
+    expect(row['server_id'], 'srv-1');
+    expect(row['dirty'], 0);
+    await store.close();
+  });
+
   test('30 structures captured offline survive reopening the app', () async {
     var store = await LocalStore.open();
     for (var i = 0; i < 30; i++) {

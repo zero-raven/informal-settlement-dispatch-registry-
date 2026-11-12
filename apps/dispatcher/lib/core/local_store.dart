@@ -423,6 +423,17 @@ class LocalStore {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  /// Record what the server assigned to a pushed structure. A null code means
+  /// it is waiting in human dedup review.
+  Future<void> markSynced(String localId, {required String serverId, String? code}) async {
+    await _db.update(
+      'local_structure',
+      {'server_id': serverId, 'code': code, 'dirty': 0},
+      where: 'local_id = ?',
+      whereArgs: [localId],
+    );
+  }
+
   Future<void> recordFailure(String opId, String error) async {
     await _db.update(
       'pending_op',

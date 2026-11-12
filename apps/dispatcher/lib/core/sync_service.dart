@@ -106,6 +106,7 @@ class SyncService extends ChangeNotifier {
       final res = await _post('/v1/sync/push', {'device_id': store.siteId, 'ops': pushed});
       final results = (res['results'] as List).cast<Map<String, Object?>>();
 
+      final opsById = {for (final o in pushed) o['clientOpId'] as String: o};
       final acked = <String>[];
       var dedup = 0;
       var rejected = 0;
@@ -119,6 +120,11 @@ class SyncService extends ChangeNotifier {
             // stays visible to the mapper: a human still has to decide.
             acked.add(id);
             if (r['state'] == 'dedup_required') dedup++;
+            final op = opsById[id];
+            if (op?['table'] == 'local_structure' && op?['op'] == 'create' && r['serverId'] != null) {
+              await store.markSynced(op!['entityId'] as String,
+                  serverId: r['serverId'] as String, code: r['code'] as String?);
+            }
           case 'rejected':
             rejected++;
             await store.recordFailure(id, (r['reason'] ?? 'rejected') as String);

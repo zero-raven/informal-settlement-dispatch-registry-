@@ -6,19 +6,22 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'design_system.dart';
 import 'components.dart';
+import 'map_view.dart';
 import 'models.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 
 class LookupScreen extends StatefulWidget {
   final String? baseUrl;
-  final String graphUrl;
+  final double stagingLat;
+  final double stagingLon;
   final String role;
 
   const LookupScreen({
     super.key,
     this.baseUrl,
-    required this.graphUrl,
+    required this.stagingLat,
+    required this.stagingLon,
     this.role = 'dispatcher',
   });
 
@@ -116,9 +119,16 @@ class _LookupScreenState extends State<LookupScreen> {
       final res = await http.post(
         Uri.parse('$base/v1/dispatch/lookup'),
         headers: await _headers(),
-        body: jsonEncode({'code': code, 'profile': 'foot'}),
+        // The registry asks the graph service for the route (GRAPH_URL); one
+        // path, so the app never talks to the graph service directly.
+        body: jsonEncode({
+          'code': code,
+          'profile': 'foot',
+          'responder_location': {'lat': widget.stagingLat, 'lon': widget.stagingLon},
+        }),
       );
       final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final route = body['route'];
 
       setState(() {
         _lookup = LookupResult(
@@ -126,41 +136,14 @@ class _LookupScreenState extends State<LookupScreen> {
           res.statusCode == 200 ? null : (body['error'] ?? 'lookup_failed'),
           res.statusCode,
         );
+        _route = (res.statusCode == 200 && route is Map<String, dynamic>)
+            ? RouteResult.fromJson(route)
+            : null;
       });
-
-      if (res.statusCode == 200) {
-        await _fetchRoute(body);
-      }
     } catch (e) {
       if (mounted) setState(() => _lookup = LookupResult(null, e.toString(), 0));
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _fetchRoute(Map<String, dynamic> lookup) async {
-    final dest = lookup['destination'] as Map<String, dynamic>?;
-    if (dest == null) return;
-
-    try {
-      // graphUrl may be configured with or without the route path.
-      final base = widget.graphUrl.replaceAll(RegExp(r'/+$'), '');
-      final routeUrl = base.endsWith('/v1/graph/route') ? base : '$base/v1/graph/route';
-      final res = await http.post(
-        Uri.parse(routeUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'from': {'lat': 12.9680, 'lon': 77.5871}, // staging point
-          'to': dest,
-          'profile': 'foot',
-        }),
-      );
-      if (mounted) {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        setState(() => _route = res.statusCode == 200 ? RouteResult.fromJson(body) : null);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _route = null);
     }
   }
 
@@ -627,6 +610,22 @@ class _LookupScreenState extends State<LookupScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (r.path.length >= 2) ...[
+                  OfflineMapView(
+                    height: 240,
+                    pins: [
+                      MapPin(
+                        lat: r.path.last.lat,
+                        lon: r.path.last.lon,
+                        code: _lookup?.data?['code'] as String?,
+                        label: 'Destination',
+                      ),
+                    ],
+                    trail: r.path,
+                    livePosition: r.path.first,
+                  ),
+                  const SizedBox(height: DSSpacing.md),
+                ],
                 Row(
                   children: [
                     _RouteMetric(

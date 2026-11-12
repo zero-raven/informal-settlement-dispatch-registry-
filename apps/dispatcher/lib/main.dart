@@ -395,7 +395,6 @@ class _MainShellState extends State<_MainShell> {
 
   List<Widget> _buildScreens(AuthService auth) {
     final baseUrl = widget.baseUrl ?? _settings.apiBaseUrl;
-    final graphUrl = _settings.graphApiUrl;
     final role = auth.currentRole.value;
 
     // Order must match the filtered _allNavItems order per role:
@@ -405,7 +404,12 @@ class _MainShellState extends State<_MainShell> {
     return [
       if (auth.isDispatcher) DashboardScreen(baseUrl: baseUrl, role: role),
       InboundCallScreen(baseUrl: baseUrl, role: role),
-      if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
+      if (auth.isDispatcher) LookupScreen(
+          baseUrl: baseUrl,
+          stagingLat: _settings.stagingLat,
+          stagingLon: _settings.stagingLon,
+          role: role,
+        ),
       if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
       if (auth.isDispatcher) AdminScreen(baseUrl: baseUrl, role: role),
       if (auth.isMapper) MapperScreen(baseUrl: baseUrl),

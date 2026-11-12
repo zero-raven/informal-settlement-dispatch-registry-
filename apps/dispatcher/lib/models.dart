@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'map_view.dart' show MapTrailPoint;
+
 class DispatchStats {
   final int active;
   final int successful;
@@ -148,6 +150,29 @@ class RouteResult {
       warnings: (json['warnings'] as List?)?.cast<String>() ?? [],
     );
   }
+
+  /// Polyline through the legs' lat/lon endpoints; empty when the graph
+  /// service sent no coordinates.
+  List<MapTrailPoint> get path {
+    MapTrailPoint? pt(Object? p) {
+      if (p is! Map) return null;
+      final lat = p['lat'], lon = p['lon'];
+      return (lat is num && lon is num) ? MapTrailPoint(lat: lat.toDouble(), lon: lon.toDouble()) : null;
+    }
+
+    final out = <MapTrailPoint>[];
+    for (final leg in legs.whereType<Map>()) {
+      final to = pt(leg['to']);
+      if (out.isEmpty) {
+        final from = pt(leg['from']);
+        if (from == null) return const [];
+        out.add(from);
+      }
+      if (to == null) return const [];
+      out.add(to);
+    }
+    return out;
+  }
 }
 
 class DispatchEvent {
@@ -185,6 +210,9 @@ class AppSettings {
   final bool autoRefresh;
   final int refreshInterval;
   final ThemeMode themeMode;
+  // Responder start point for routes; defaults to the zones.campus.json centre.
+  final double stagingLat;
+  final double stagingLon;
 
   AppSettings({
     this.apiBaseUrl = 'http://127.0.0.1:8090',
@@ -195,6 +223,8 @@ class AppSettings {
     this.autoRefresh = true,
     this.refreshInterval = 30,
     this.themeMode = ThemeMode.dark,
+    this.stagingLat = 12.97,
+    this.stagingLon = 77.59,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -210,6 +240,8 @@ class AppSettings {
         (e) => e.name == (json['theme_mode'] ?? 'dark'),
         orElse: () => ThemeMode.dark,
       ),
+      stagingLat: (json['staging_lat'] as num?)?.toDouble() ?? 12.97,
+      stagingLon: (json['staging_lon'] as num?)?.toDouble() ?? 77.59,
     );
   }
 
@@ -223,6 +255,8 @@ class AppSettings {
       'auto_refresh': autoRefresh,
       'refresh_interval': refreshInterval,
       'theme_mode': themeMode.name,
+      'staging_lat': stagingLat,
+      'staging_lon': stagingLon,
     };
   }
 
@@ -235,6 +269,8 @@ class AppSettings {
     bool? autoRefresh,
     int? refreshInterval,
     ThemeMode? themeMode,
+    double? stagingLat,
+    double? stagingLon,
   }) {
     return AppSettings(
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
@@ -245,6 +281,8 @@ class AppSettings {
       autoRefresh: autoRefresh ?? this.autoRefresh,
       refreshInterval: refreshInterval ?? this.refreshInterval,
       themeMode: themeMode ?? this.themeMode,
+      stagingLat: stagingLat ?? this.stagingLat,
+      stagingLon: stagingLon ?? this.stagingLon,
     );
   }
 }

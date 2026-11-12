@@ -183,12 +183,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     helperText: 'Use Tailscale IP (100.x.x.x) for remote access',
                   ),
                   const SizedBox(height: DSSpacing.md),
+                  // Routes come via the registry (its GRAPH_URL); the app only
+                  // needs where responders start from.
                   _buildTextField(
-                    label: 'Graph API URL',
-                    initialValue: _settings.graphApiUrl,
-                    hint: 'http://127.0.0.1:8092',
-                    onChanged: (v) => _settings = _settings.copyWith(graphApiUrl: v),
-                    prefixIcon: Icons.route_rounded,
+                    label: 'Responder start latitude',
+                    initialValue: _settings.stagingLat.toString(),
+                    hint: '12.97',
+                    onChanged: (v) {
+                      final d = double.tryParse(v.trim());
+                      if (d != null) _settings = _settings.copyWith(stagingLat: d);
+                    },
+                    prefixIcon: Icons.my_location_rounded,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                  ),
+                  const SizedBox(height: DSSpacing.md),
+                  _buildTextField(
+                    label: 'Responder start longitude',
+                    initialValue: _settings.stagingLon.toString(),
+                    hint: '77.59',
+                    onChanged: (v) {
+                      final d = double.tryParse(v.trim());
+                      if (d != null) _settings = _settings.copyWith(stagingLon: d);
+                    },
+                    prefixIcon: Icons.my_location_rounded,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                   ),
                   const SizedBox(height: DSSpacing.md),
                   _buildDropdown(
