@@ -28,9 +28,10 @@ jobs:
       - name: Install Android SDK
         uses: android-actions/setup-android@v3
         with:
-          api-level: 33
+          api-level: 34
           ndk-version: r26c
-          cmdline-tools-version: 'latest'
+          cmdline-tools-version: '10.0'
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses
