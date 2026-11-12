@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass, field
 
 import numpy as np
-from scipy.spatial import Delaunay, cKDTree
+from scipy.spatial import Delaunay, QhullError, cKDTree
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
@@ -62,6 +62,7 @@ class Graph:
     adjacency_matrix: csr_matrix | None = None
     stats: dict = field(default_factory=dict)
     build_seconds: float = 0.0
+    origin: tuple[float, float] | None = None  # (lat, lon) when built from lat/lon traces
 
     @property
     def n_nodes(self) -> int:
@@ -200,7 +201,11 @@ def restricted_delaunay_bridges(
     if len(node_xy) < 4:
         return []
 
-    tri = Delaunay(node_xy)
+    try:
+        tri = Delaunay(node_xy)
+    except QhullError:
+        # Collinear seeds (one straight walk): nothing to bridge; the backbone stands.
+        return []
     simplices = tri.simplices
     pairs = (
         list(zip(simplices[:, 0], simplices[:, 1]))

@@ -20,8 +20,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import urllib.request  # noqa: E402
+
+from geo import InsufficientBreadcrumbs, build_graph_latlon, group_breadcrumbs  # noqa: E402
 from hybrid import ALGORITHM as APPROVED_ALGORITHM, build_graph   # noqa: E402
-from routing import GraphRegistry, route                        # noqa: E402
+from routing import GraphRegistry, route_latlon                 # noqa: E402
 
 PORT = int(os.environ.get("PORT", "8092"))
 
@@ -112,9 +115,9 @@ class Handler(BaseHTTPRequestHandler):
                                  "detail": "no graph has been built yet"})
                 return
 
-            r = route(g, (frm["lat"], frm["lon"]), (to["lat"], to["lon"]),
-                      profile=body.get("profile", "foot"),
-                      confidence_floor=body.get("confidence_floor", 0.0))
+            r = route_latlon(g, frm, to,
+                             profile=body.get("profile", "foot"),
+                             confidence_floor=body.get("confidence_floor", 0.0))
 
             if not r.reachable:
                 # Honest failure: never a fabricated path.
@@ -137,22 +140,44 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(409, {"error": "build_in_progress"})
                 return
 
-            # Production builds consume breadcrumbs, which arrive as
-            # {noisy: [[x,y], ...]} per trace.
-            raw = body.get("traces")
-            if not raw:
-                self._send(400, {
-                    "error": "missing_traces",
-                    "detail": "production builds consume breadcrumbs",
-                })
-                return
+            # Production: {"source": "registry"} pulls the mappers' breadcrumbs
+            # (lat/lon). Raw {"traces": [{noisy: [[x,y], ...]}]} stays for
+            # metric spike/test inputs.
+            latlon = None
+            raw = None
+            if body.get("source") == "registry":
+                reg_url = os.environ.get("REGISTRY_URL")
+                if not reg_url:
+                    self._send(400, {"error": "registry_url_not_configured",
+                                     "detail": "set REGISTRY_URL to rebuild from breadcrumbs"})
+                    return
+                try:
+                    with urllib.request.urlopen(
+                            f"{reg_url.rstrip('/')}/v1/breadcrumbs?limit=100000", timeout=30) as resp:
+                        latlon = group_breadcrumbs(json.loads(resp.read()).get("points", []))
+                except Exception as e:  # noqa: BLE001
+                    self._send(502, {"error": "registry_unreachable", "detail": str(e)})
+                    return
+            else:
+                raw = body.get("traces")
+                if not raw:
+                    self._send(400, {
+                        "error": "missing_traces",
+                        "detail": "production builds consume breadcrumbs",
+                    })
+                    return
 
-            traces = [_Trace(t) for t in raw]
             building = True
             try:
                 next_version = (registry.latest_version or 0) + 1
-                g = build_graph(traces, build_version=next_version)
+                if latlon is not None:
+                    g = build_graph_latlon(latlon, build_version=next_version)
+                else:
+                    g = build_graph([_Trace(t) for t in raw], build_version=next_version)
                 registry.publish(g)
+            except InsufficientBreadcrumbs as e:
+                self._send(422, {"error": "insufficient_breadcrumbs", "detail": str(e)})
+                return
             finally:
                 building = False
 

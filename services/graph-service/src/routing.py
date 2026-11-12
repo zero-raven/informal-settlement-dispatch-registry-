@@ -26,6 +26,8 @@ class RouteLeg:
     confidence: float
     derivation: str
     state: str            # always 'candidate' until observed (C8)
+    from_latlon: tuple[float, float] | None = None
+    to_latlon: tuple[float, float] | None = None
 
 
 @dataclass
@@ -53,6 +55,9 @@ class Route:
                     "length_m": round(l.length_m, 2),
                     "confidence": round(l.confidence, 4),
                     "derivation": l.derivation, "state": l.state,
+                    **({"from": {"lat": l.from_latlon[0], "lon": l.from_latlon[1]},
+                        "to": {"lat": l.to_latlon[0], "lon": l.to_latlon[1]}}
+                       if l.from_latlon and l.to_latlon else {}),
                 }
                 for l in (self.legs or [])
             ],
@@ -207,3 +212,22 @@ def route(graph, start_xy, end_xy, *, graph_version=None, confidence_floor=0.0,
         warnings=warnings,
         profile=profile,
     )
+
+def route_latlon(graph, frm: dict, to: dict, **kw) -> Route:
+    """`route` for callers speaking {lat, lon}. Legs gain lat/lon endpoints.
+
+    A graph without an origin was built from metric traces: inputs are taken as
+    metric x/y, exactly as `route` does.
+    """
+    origin = getattr(graph, "origin", None) if graph is not None else None
+    if origin is None:
+        return route(graph, (frm["lat"], frm["lon"]), (to["lat"], to["lon"]), **kw)
+
+    from geo import project, unproject
+
+    r = route(graph, project(frm["lat"], frm["lon"], origin),
+              project(to["lat"], to["lon"], origin), **kw)
+    for leg in r.legs:
+        leg.from_latlon = unproject(*graph.node_xy[leg.from_node], origin)
+        leg.to_latlon = unproject(*graph.node_xy[leg.to_node], origin)
+    return r
