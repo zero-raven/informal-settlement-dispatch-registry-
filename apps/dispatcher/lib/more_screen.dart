@@ -9,8 +9,9 @@ import 'design_system.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 import 'models.dart';
+import 'core/local_store.dart';
 
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends StatefulWidget {
   final String? baseUrl;
   final String role;
   final AppSettings initialSettings;
@@ -25,6 +26,42 @@ class MoreScreen extends StatelessWidget {
   });
 
   @override
+  State<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends State<MoreScreen> {
+  int _structures = 0;
+  int _pending = 0;
+  int _breadcrumbs = 0;
+  int _unsyncedBreadcrumbs = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (context.read<AuthService>().isMapper) {
+      _loadMapperStats();
+    }
+  }
+
+  Future<void> _loadMapperStats() async {
+    try {
+      final store = await LocalStore.open();
+      final structures = await store.countStructures();
+      final pending = await store.pendingCount();
+      final crumbs = await store.breadcrumbCount();
+      final unsynced = await store.unsyncedBreadcrumbCount();
+      if (mounted) {
+        setState(() {
+          _structures = structures;
+          _pending = pending;
+          _breadcrumbs = crumbs;
+          _unsyncedBreadcrumbs = unsynced;
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     return Scaffold(
@@ -33,31 +70,41 @@ class MoreScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(DSSpacing.md),
         children: [
+          if (auth.isMapper) ...[
+            _statCard('Local structures', '$_structures', Icons.apartment_rounded),
+            _statCard('Pending sync', '$_pending', Icons.sync_rounded),
+            _statCard('GPS breadcrumbs', '$_breadcrumbs', Icons.route_rounded),
+            _statCard('Unsynced points', '$_unsyncedBreadcrumbs', Icons.cloud_off_rounded),
+            const SizedBox(height: DSSpacing.md),
+            _tile(context, Icons.refresh_rounded, 'Refresh stats',
+                'Reload local data counts', _loadMapperStats),
+            const Divider(),
+          ],
           if (auth.isDispatcher) ...[
-          _tile(context, Icons.add_task_rounded, 'Create dispatch',
-              'Assign a responder to a structure', () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => CreateDispatchScreen(baseUrl: baseUrl, role: role),
-            ));
-          }),
-          _tile(context, Icons.history_rounded, 'History',
-              'All dispatches and their outcomes', () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => HistoryScreen(baseUrl: baseUrl, role: role),
-            ));
-          }),
+            _tile(context, Icons.add_task_rounded, 'Create dispatch',
+                'Assign a responder to a structure', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => CreateDispatchScreen(baseUrl: widget.baseUrl, role: widget.role),
+              ));
+            }),
+            _tile(context, Icons.history_rounded, 'History',
+                'All dispatches and their outcomes', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => HistoryScreen(baseUrl: widget.baseUrl, role: widget.role),
+              ));
+            }),
           ],
           if (!auth.isMapper)
-          _tile(context, Icons.settings_rounded, 'Settings',
-              'Server, theme and behaviour', () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => SettingsScreen(
-                baseUrl: baseUrl, role: role,
-                initialSettings: initialSettings,
-                onSettingsChanged: onSettingsChanged,
-              ),
-            ));
-          }),
+            _tile(context, Icons.settings_rounded, 'Settings',
+                'Server, theme and behaviour', () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => SettingsScreen(
+                  baseUrl: widget.baseUrl, role: widget.role,
+                  initialSettings: widget.initialSettings,
+                  onSettingsChanged: widget.onSettingsChanged,
+                ),
+              ));
+            }),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout_rounded),
@@ -86,6 +133,23 @@ class MoreScreen extends StatelessWidget {
         subtitle: Text(sub),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon) {
+    return Card(
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(DSSpacing.sm),
+          decoration: BoxDecoration(
+            color: DSColors.primary.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(DSBorderRadius.md),
+          ),
+          child: Icon(icon, color: DSColors.primary),
+        ),
+        title: Text(label),
+        subtitle: Text(value, style: DSTypography.headlineSmall.copyWith(fontWeight: FontWeight.w700)),
       ),
     );
   }

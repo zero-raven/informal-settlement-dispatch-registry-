@@ -676,7 +676,11 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _CallDetailSheet(call: call, onConvert: _convertToDispatch),
+      builder: (context) => _CallDetailSheet(
+        call: call,
+        onConvert: _convertToDispatch,
+        onCreateDispatchFromCall: () => _showCreateDispatchFromCall(call),
+      ),
     );
   }
 
@@ -687,6 +691,125 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
     if (diff.inHours < 1) return '${diff.inMinutes}m ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
+  }
+
+  /// Show a bottom sheet to create a dispatch from an incoming call.
+  /// Tries to extract structure code from call location/description, otherwise prompts.
+  Future<void> _showCreateDispatchFromCall(IncomingCall call) async {
+    final codeController = TextEditingController();
+    // Try to extract a structure code from the call's location/description
+    final codeRegex = RegExp(r'SLR-[A-Z]\d+', caseSensitive: false);
+    final match = codeRegex.firstMatch('${call.location} ${call.description}');
+    if (match != null) {
+      codeController.text = match.group(0)!.toUpperCase();
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return Container(
+            decoration: BoxDecoration(
+              color: isDark ? DSColors.surface1 : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(DSBorderRadius.xl)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: DSSpacing.md),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: DSColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(DSSpacing.cardPadding),
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(DSSpacing.md),
+                            decoration: BoxDecoration(
+                              color: DSColors.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                            ),
+                            child: Icon(Icons.local_shipping_rounded, color: DSColors.primary, size: 28),
+                          ),
+                          const SizedBox(width: DSSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Create Dispatch from Call', style: DSTypography.headlineSmall.copyWith(fontWeight: FontWeight.w700)),
+                                Text('${call.callerName} · ${call.type.toUpperCase()} · ${call.priority.toUpperCase()}', style: DSTypography.bodySmall.copyWith(color: DSColors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: DSSpacing.lg),
+                      Divider(color: DSColors.divider, height: 1),
+                      const SizedBox(height: DSSpacing.lg),
+                      Text('Structure Code', style: DSTypography.titleSmall.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: DSSpacing.sm),
+                      TextField(
+                        controller: codeController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          labelText: 'Structure Code *',
+                          hintText: 'SLR-C41001',
+                          prefixIcon: const Icon(Icons.qr_code_rounded),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
+                        ),
+                      ),
+                      const SizedBox(height: DSSpacing.md),
+                      Text('Responder', style: DSTypography.titleSmall.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: DSSpacing.sm),
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: 'Responder ID / Name *',
+                          hintText: 'unit-1, team-alpha, etc.',
+                          prefixIcon: const Icon(Icons.badge_rounded),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
+                        ),
+                        onSubmitted: (_) => _createDispatchFromCall(codeController.text.trim().toUpperCase()),
+                      ),
+                      const SizedBox(height: DSSpacing.lg),
+                      DSPrimaryButton(
+                        label: 'Create Dispatch',
+                        icon: Icons.send_rounded,
+                        onPressed: () => _createDispatchFromCall(codeController.text.trim().toUpperCase()),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _createDispatchFromCall(String structureCode) async {
+    if (structureCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a structure code')),
+      );
+      return;
+    }
+    // Reuse the existing conversion logic
+    await _convertToDispatch(structureCode);
   }
 }
 
@@ -729,8 +852,13 @@ class InboundCallResult {
 class _CallDetailSheet extends StatelessWidget {
   final IncomingCall call;
   final Future<void> Function(String) onConvert;
+  final VoidCallback onCreateDispatchFromCall;
 
-  const _CallDetailSheet({required this.call, required this.onConvert});
+  const _CallDetailSheet({
+    required this.call,
+    required this.onConvert,
+    required this.onCreateDispatchFromCall,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -840,7 +968,7 @@ class _CallDetailSheet extends StatelessWidget {
                       icon: Icons.send_rounded,
                       onPressed: () {
                         Navigator.pop(context);
-                        // Would need to extract structure code from description or prompt
+                        onCreateDispatchFromCall();
                       },
                     ),
                 ],
