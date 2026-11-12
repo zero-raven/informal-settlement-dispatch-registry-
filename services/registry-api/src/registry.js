@@ -734,8 +734,9 @@ class Registry {
             if (typeof s?.service_type !== 'string') continue;
             const hours = Array.isArray(s.supply_hours)
               ? s.supply_hours.map((p) => (Array.isArray(p) ? p.join('-') : String(p))).join(',') : null;
-            insertSvc.run(crypto.randomUUID(), id, s.service_type, s.source ?? null, hours,
-              s.quality ?? null, Number.isInteger(s.shared_with_count) ? s.shared_with_count : 0, svcAt, svcAt);
+            const str = (v) => (typeof v === 'string' ? v : null);  // SQLite can't bind objects
+            insertSvc.run(crypto.randomUUID(), id, s.service_type, str(s.source), hours,
+              str(s.quality), Number.isInteger(s.shared_with_count) ? s.shared_with_count : 0, svcAt, svcAt);
           }
 
           const dupId = this.generateDedupCandidate(id);
@@ -966,6 +967,8 @@ function loadZonesFile(path) {
     throw new Error(`cannot load zones file ${path}: ${e.message}`);
   }
   if (!Array.isArray(zones)) throw new Error(`zones file ${path} must hold a JSON array`);
+  // An empty list would start a server where every lookup is outside_mapped_zone.
+  if (!zones.length) throw new Error(`zones file ${path} holds no zones`);
   return zones;
 }
 

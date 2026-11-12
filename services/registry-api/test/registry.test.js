@@ -515,3 +515,22 @@ test('zones: a missing file fails loudly', () => {
   const { loadZonesFile } = require('../src/registry.js');
   assert.throws(() => loadZonesFile('does/not/exist.json'), /does\/not\/exist\.json/);
 });
+
+test('sync: a non-string service field does not orphan the structure', () => {
+  const r = newRegistry();
+  const o = syncOp('o1', 1, 12.97, 77.59);
+  o.payload.services = [{ service_type: 'water', source: { bad: true }, quality: ['x'] }];
+  const [res] = r.push({ deviceId: 'd1', ops: [o], mapperId: 'm1' }).results;
+  assert.strictEqual(res.state, 'applied');
+  assert.strictEqual(r.allStructures().length, 1);
+  const row = r.db.prepare('SELECT * FROM structure_service').get();
+  assert.strictEqual(row.source, null);
+  assert.strictEqual(row.quality, null);
+});
+
+test('zones: an empty zones file fails loudly', () => {
+  const { loadZonesFile } = require('../src/registry.js');
+  const p = require('node:path').join(require('node:os').tmpdir(), `zones-empty-${process.pid}.json`);
+  require('node:fs').writeFileSync(p, '[]');
+  assert.throws(() => loadZonesFile(p), /no zones/);
+});
