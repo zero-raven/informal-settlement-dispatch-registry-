@@ -704,6 +704,20 @@ class Registry {
             });
           }
 
+          // PRD 6.6 service records ride the structure op; a bad entry is
+          // skipped, never allowed to lose the structure.
+          const svcAt = new Date().toISOString();
+          const insertSvc = this.db.prepare(`INSERT OR IGNORE INTO structure_service
+            (id, structure_id, service_type, source, supply_hours, quality, shared_with_count, last_verified_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+          for (const s of Array.isArray(pl.services) ? pl.services : []) {
+            if (typeof s?.service_type !== 'string') continue;
+            const hours = Array.isArray(s.supply_hours)
+              ? s.supply_hours.map((p) => (Array.isArray(p) ? p.join('-') : String(p))).join(',') : null;
+            insertSvc.run(crypto.randomUUID(), id, s.service_type, s.source ?? null, hours,
+              s.quality ?? null, Number.isInteger(s.shared_with_count) ? s.shared_with_count : 0, svcAt, svcAt);
+          }
+
           const dupId = this.generateDedupCandidate(id);
           if (dupId) {
             const c = this.db.prepare('SELECT * FROM dedup_candidate WHERE id = ?').get(dupId);

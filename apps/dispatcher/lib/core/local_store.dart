@@ -325,7 +325,6 @@ class LocalStore {
           'shared_with_count': s.sharedWithCount,
           'dirty': 1,
         });
-        await _enqueue(txn, 'local_service', sid, 'create', s.toPayload());
       }
 
       // PRD 6.1 fields are GROUND TRUTH observations: the mapper asserts them,
@@ -342,6 +341,9 @@ class LocalStore {
         'material_primary': materialPrimary,
         'occupancy_estimate': occupancyEstimate,
         'observed_at': now.toIso8601String(),
+        // PRD 6.6: services ride this op — a separate op would reference a
+        // local id the server never sees.
+        'services': services.map((s) => s.toPayload()).toList(),
       });
 
       return localId;

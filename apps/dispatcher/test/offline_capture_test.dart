@@ -3,6 +3,7 @@
 // Proves the shipped LocalStore — not a stand-in — captures structures with no
 // network, survives being reopened, and keeps queued work intact.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -72,12 +73,26 @@ void main() {
 
     expect(id, isNotEmpty);
     expect(await store.countStructures(), 1);
-    // one op for the structure + one for the service record
-    expect(await store.pendingCount(), 2);
+    // one op: service records travel inside the structure op
+    expect(await store.pendingCount(), 1);
+    await store.close();
+  });
 
+  test('services travel inside the structure op', () async {
+    final store = await LocalStore.open();
+    await store.captureStructure(
+      lat: 12.97,
+      lon: 77.59,
+      type: StructureType.standaloneDwelling,
+      services: [
+        ServiceRecord(structureLocalId: '', serviceType: ServiceType.water, source: 'informal_tap'),
+      ],
+    );
     final ops = await store.pendingOps();
-    // monotonic seq preserved, so replay order is deterministic
-    expect(ops.map((o) => o['seq']).toList(), [1, 2]);
+    expect(ops.where((o) => o['table_name'] == 'local_service'), isEmpty);
+    final op = ops.singleWhere((o) => o['table_name'] == 'local_structure');
+    final payload = jsonDecode(op['payload'] as String) as Map<String, dynamic>;
+    expect((payload['services'] as List).single['service_type'], 'water');
     await store.close();
   });
 

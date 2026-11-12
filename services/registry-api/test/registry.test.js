@@ -469,3 +469,25 @@ test('sync: replaying the op returns the same code', () => {
   assert.strictEqual(again.state, 'replayed');
   assert.strictEqual(again.code, first.code);
 });
+
+test('sync: services in the structure op are stored', () => {
+  const r = newRegistry();
+  const o = syncOp('o1', 1, 12.97, 77.59);
+  o.payload.services = [{ service_type: 'water', source: 'shared_tap', supply_hours: [['06:00', '09:00']], quality: 'ok', shared_with_count: 4 }];
+  const [res] = r.push({ deviceId: 'd1', ops: [o], mapperId: 'm1' }).results;
+  const rows = r.db.prepare('SELECT * FROM structure_service WHERE structure_id = ?').all(res.serverId);
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(rows[0].service_type, 'water');
+  assert.strictEqual(rows[0].supply_hours, '06:00-09:00');
+  assert.strictEqual(rows[0].shared_with_count, 4);
+});
+
+test('sync: a bad service entry does not lose the structure', () => {
+  const r = newRegistry();
+  const o = syncOp('o1', 1, 12.97, 77.59);
+  o.payload.services = [{ service_type: 'water' }, { service_type: 'water' }, { foo: 1 }, { service_type: 'electricity', supply_hours: ['bad'] }];
+  const [res] = r.push({ deviceId: 'd1', ops: [o], mapperId: 'm1' }).results;
+  assert.strictEqual(res.state, 'applied');
+  assert.ok(r.getStructure(res.serverId));
+  assert.strictEqual(r.db.prepare('SELECT COUNT(*) n FROM structure_service').get().n, 2);
+});
