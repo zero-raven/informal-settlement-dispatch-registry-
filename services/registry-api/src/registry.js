@@ -6,7 +6,8 @@
  *
  * M2 scope: synchronisation, dedup review, code issuance, QR.
  * Identity rules enforced here:
- *   C1  a code is issued ONLY inside a human dedup decision
+ *   C1  a code is issued only by a human dedup decision, or automatically at
+ *       sync when no dedup candidate exists (PRD 6.1)
  *   C2  no automated merge path exists
  *   C8  inference never overwrites ground truth
  */
@@ -630,9 +631,11 @@ class Registry {
       // Idempotency: a replay returns the original receipt.
       const prior = this.receipt(op.clientOpId);
       if (prior) {
+        const code = prior.entity_table === 'local_structure'
+          ? this.getStructure(prior.entity_id)?.code ?? undefined : undefined;
         results.push({
           clientOpId: op.clientOpId, state: 'replayed',
-          serverId: prior.entity_id, version: prior.server_version,
+          serverId: prior.entity_id, version: prior.server_version, code,
         });
         continue;
       }
@@ -716,11 +719,13 @@ class Registry {
             continue;
           }
 
+          // No possible duplicate: PRD 6.1 needs no human, so identity is settled now.
+          const code = this.issueCode(id, { reviewerId: 'system:no_nearby_structure' });
           this.recordReceipt({
             clientOpId: op.clientOpId, clientSeq: op.clientSeq, mapperId,
             table: op.table, entityId: id, serverVersion: 1,
           });
-          results.push({ clientOpId: op.clientOpId, state: 'applied', serverId: id, version: 1 });
+          results.push({ clientOpId: op.clientOpId, state: 'applied', serverId: id, version: 1, code });
           continue;
         }
 

@@ -410,10 +410,13 @@ test('E2E: offline capture -> sync -> dedup -> human review -> code -> QR', () =
   assert.ok(dup.results[0].dedupCandidateId);
 
   // 3. the duplicate EXISTS as its own row — dedup_required means "a human must
-  //    decide", not "silently merged". Nothing is coded while it is unresolved.
+  //    decide", not "silently merged". The five lone structures were coded at
+  //    sync (no candidate, PRD 6.1); the possible duplicate is not.
   assert.strictEqual(r.allStructures(false).length, 6);
-  assert.ok(r.allStructures().every((s) => s.code === null),
-    'no code while identity is unresolved');
+  const dupRow = r.getStructure(dup.results[0].serverId);
+  assert.strictEqual(dupRow.code, null, 'no code while identity is unresolved');
+  const originalCode = r.getStructure(dup.results[0].nearestStructure.serverId).code;
+  assert.match(originalCode, /^SLR-/);
 
   // 4. the reviewer confirms it is the same unit -> merge, one code
   const queue = r.openDedupQueue();
@@ -423,12 +426,46 @@ test('E2E: offline capture -> sync -> dedup -> human review -> code -> QR', () =
   });
   assert.strictEqual(r.allStructures(false).length, 5);
 
-  // 5. the surviving structure now carries a code, issued post-decision
+  // 5. the merge keeps the original code; no second code was minted
+  assert.strictEqual(merged.code, originalCode);
   const survivors = r.allStructures();
-  const coded = survivors.filter((s) => s.code);
-  assert.strictEqual(coded.length, 1, 'exactly one code after the merge');
+  assert.ok(survivors.every((s) => s.code), 'every survivor is coded');
+  assert.strictEqual(new Set(survivors.map((s) => s.code)).size, 5);
+  const coded = survivors.filter((s) => s.code === originalCode);
 
   // 6. and a QR resolves it
   const qr = encodePayload(coded[0].code);
   assert.strictEqual(decodePayload(qr.payload), coded[0].code);
+});
+// ---------------------------------------------------------------------------
+// Demo MVP — auto-issue at sync when no dedup candidate exists (PRD 6.1)
+// ---------------------------------------------------------------------------
+
+const syncOp = (id, seq, lat, lon) => ({ clientOpId: id, clientSeq: seq, table: 'local_structure', op: 'create',
+  payload: { centroid: { lat, lon }, structure_type: 'standalone_dwelling' } });
+
+test('sync: a structure with nothing nearby gets a code at once', () => {
+  const r = newRegistry();
+  const [res] = r.push({ deviceId: 'd1', ops: [syncOp('o1', 1, 12.97, 77.59)], mapperId: 'm1' }).results;
+  assert.strictEqual(res.state, 'applied');
+  assert.match(res.code, /^SLR-/);
+  assert.strictEqual(r.getStructure(res.serverId).code, res.code);
+});
+
+test('sync: a pin near an existing structure still waits for a human', () => {
+  const r = newRegistry();
+  r.push({ deviceId: 'd1', ops: [syncOp('o1', 1, 12.97, 77.59)], mapperId: 'm1' });
+  const [res] = r.push({ deviceId: 'd1', ops: [syncOp('o2', 2, 12.97003, 77.59)], mapperId: 'm1' }).results;
+  assert.strictEqual(res.state, 'dedup_required');
+  assert.strictEqual(res.code, undefined);
+  assert.strictEqual(r.getStructure(res.serverId).code, null);
+});
+
+test('sync: replaying the op returns the same code', () => {
+  const r = newRegistry();
+  const first = r.push({ deviceId: 'd1', ops: [syncOp('o1', 1, 12.97, 77.59)], mapperId: 'm1' }).results[0];
+  const again = r.push({ deviceId: 'd1', ops: [syncOp('o1', 1, 12.97, 77.59)], mapperId: 'm1' }).results[0];
+  assert.match(first.code, /^SLR-/);
+  assert.strictEqual(again.state, 'replayed');
+  assert.strictEqual(again.code, first.code);
 });
