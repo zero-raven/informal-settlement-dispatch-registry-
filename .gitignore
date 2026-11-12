@@ -97,7 +97,9 @@ docker-compose.override.yml
 # Services
 services/*/node_modules/
 services/registry-api/*.log
-tiles/
+# Downloaded OSM tile packs (scripts/download-tiles.py); keep the asset dir
+**/tiles/*
+!apps/dispatcher/tiles/.gitkeep
 
 # Demo runtime (scripts/demo.sh)
 .demo.pids*
