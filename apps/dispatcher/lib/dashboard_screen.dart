@@ -234,7 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStatsGrid(bool isWide) {
     final crossAxisCount = isWide ? 4 : 2;
-    final childAspectRatio = isWide ? 1.4 : 1.25;
+    final childAspectRatio = isWide ? 1.5 : 1.3;
 
     if (_stats == null) {
       return GridView.count(
@@ -266,8 +266,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.local_shipping_rounded,
           iconColor: DSColors.primary,
           gradient: DSColors.primaryGradient,
-          subtitle: '+${_stats!.todayStarted} today',
+          subtitle: '+${_stats!.todayStarted} started today',
           trend: _stats!.todayStarted > 0 ? 'up' : 'neutral',
+          onTap: () => _navigateToTab(2),
         ),
         _buildStatCard(
           label: 'Success Rate',
@@ -281,6 +282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           subtitle: _stats!.total > 0 ? '${_stats!.successful}/${_stats!.total} confirmed' : 'No data',
           trend: _stats!.successRate >= 80 ? 'up' : _stats!.successRate >= 50 ? 'neutral' : 'down',
+          onTap: () => _navigateToTab(2),
         ),
         _buildStatCard(
           label: 'Pending Review',
@@ -294,6 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           subtitle: 'Requires attention',
           trend: _stats!.pendingReview > 0 ? 'up' : 'neutral',
+          onTap: () => _navigateToTab(1),
         ),
         _buildStatCard(
           label: 'Avg Response',
@@ -309,6 +312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           trend: _stats!.avgResponseTime == null
               ? 'neutral'
               : _stats!.avgResponseTime! <= 15 ? 'up' : _stats!.avgResponseTime! <= 30 ? 'neutral' : 'down',
+          onTap: () => _navigateToTab(2),
         ),
       ],
     );
@@ -322,6 +326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required Gradient gradient,
     required String subtitle,
     required String trend,
+    VoidCallback? onTap,
   }) {
     final trendColor = switch (trend) {
       'up' => DSColors.success,
@@ -334,47 +339,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _ => Icons.trending_flat_rounded,
     };
 
-    return DSCard(
-      padding: const EdgeInsets.all(DSSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(DSBorderRadius.lg),
+        child: DSCard(
+          padding: const EdgeInsets.all(DSSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(DSSpacing.sm),
-                decoration: BoxDecoration(
-                  gradient: gradient,
-                  borderRadius: BorderRadius.circular(DSBorderRadius.md),
-                ),
-                child: Icon(icon, color: DSColors.textOnPrimary, size: 22),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(DSSpacing.sm),
+                    decoration: BoxDecoration(
+                      gradient: gradient,
+                      borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                    ),
+                    child: Icon(icon, color: DSColors.textOnPrimary, size: 22),
+                  ),
+                  const Spacer(),
+                  Icon(trendIcon, color: trendColor, size: 18),
+                ],
               ),
-              const Spacer(),
-              Icon(trendIcon, color: trendColor, size: 18),
+              const SizedBox(height: DSSpacing.md),
+              Text(
+                value,
+                style: DSTypography.headlineMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: DSSpacing.xs),
+              Text(
+                label,
+                style: DSTypography.labelMedium.copyWith(
+                  color: DSColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: DSSpacing.xs),
+              Text(
+                subtitle,
+                style: DSTypography.bodySmall.copyWith(
+                  color: DSColors.textTertiary,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: DSSpacing.md),
-          Text(
-            value,
-            style: DSTypography.headlineMedium.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: DSSpacing.xs),
-          Text(
-            label,
-            style: DSTypography.labelMedium.copyWith(
-              color: DSColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: DSSpacing.xs),
-          Text(
-            subtitle,
-            style: DSTypography.bodySmall.copyWith(
-              color: DSColors.textTertiary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

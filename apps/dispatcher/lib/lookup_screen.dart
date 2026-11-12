@@ -28,16 +28,73 @@ class LookupScreen extends StatefulWidget {
 
 class _LookupScreenState extends State<LookupScreen> {
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final String _api = 'http://127.0.0.1:8090';
   bool _busy = false;
+  bool _showStructureList = false;
   LookupResult? _lookup;
   RouteResult? _route;
   String? _outcomeNote;
+  List<_StructureSummary> _allStructures = [];
+  List<_StructureSummary> _filteredStructures = [];
+  bool _loadingStructures = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStructures();
+    _searchController.addListener(_filterStructures);
+  }
 
   @override
   void dispose() {
     _codeController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadStructures() async {
+    setState(() => _loadingStructures = true);
+    try {
+      final base = widget.baseUrl ?? _api;
+      final headers = await _headers();
+      final res = await http.get(
+        Uri.parse('$base/v1/structures?include_deleted=false'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 10));
+      
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final structures = (data['structures'] as List? ?? []);
+        if (mounted) {
+          setState(() {
+            _allStructures = structures.map((e) => _StructureSummary.fromJson(e)).toList();
+            _filteredStructures = _allStructures;
+            _loadingStructures = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _loadingStructures = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingStructures = false);
+    }
+  }
+
+  void _filterStructures() {
+    final query = _searchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredStructures = _allStructures;
+      } else {
+        _filteredStructures = _allStructures.where((s) =>
+          (s.code?.toLowerCase().contains(query) ?? false) ||
+          s.id.toLowerCase().contains(query) ||
+          (s.type?.toLowerCase().contains(query) ?? false) ||
+          (s.status?.toLowerCase().contains(query) ?? false)
+        ).toList();
+      }
+    });
   }
 
   Future<Map<String, String>> _headers() async =>
@@ -144,7 +201,21 @@ class _LookupScreenState extends State<LookupScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Lookup')),
+      appBar: AppBar(
+        title: const Text('Lookup'),
+        actions: [
+          IconButton(
+            icon: Icon(_showStructureList ? Icons.close_rounded : Icons.list_rounded),
+            onPressed: () => setState(() => _showStructureList = !_showStructureList),
+            tooltip: _showStructureList ? 'Hide list' : 'Show all structures',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _loadStructures,
+            tooltip: 'Refresh structures',
+          ),
+        ],
+      ),
       backgroundColor: isDark ? DSColors.surface0 : Colors.grey[50],
       body: CustomScrollView(
         slivers: [
@@ -163,7 +234,7 @@ class _LookupScreenState extends State<LookupScreen> {
                   ),
                   const SizedBox(height: DSSpacing.xs),
                   Text(
-                    'Enter a structure code to dispatch a unit',
+                    'Search structures or enter a code to dispatch',
                     style: DSTypography.bodyMedium.copyWith(
                       color: DSColors.textSecondary,
                     ),
@@ -172,6 +243,84 @@ class _LookupScreenState extends State<LookupScreen> {
               ),
             ),
           ),
+
+          // Structure list panel
+          if (_showStructureList)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: DSSpacing.screenPadding),
+                child: DSCard(
+                  padding: const EdgeInsets.all(DSSpacing.cardPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.apartment_rounded, color: DSColors.primary, size: 22),
+                          const SizedBox(width: DSSpacing.sm),
+                          Text(
+                            'Known Structures (${_filteredStructures.length}/${_allStructures.length})',
+                            style: DSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          if (_loadingStructures)
+                            const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: DSSpacing.md),
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Search structures',
+                          hintText: 'Search by code, ID, type, or status...',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                          ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded),
+                                  onPressed: () => _searchController.clear(),
+                                )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: DSSpacing.md),
+                      if (_filteredStructures.isEmpty && !_loadingStructures)
+                        DSEmptyState(
+                          icon: Icons.apartment_outlined,
+                          title: _searchController.text.isEmpty ? 'No structures mapped' : 'No matches found',
+                          message: _searchController.text.isEmpty
+                              ? 'Mapper teams need to survey the area first.'
+                              : 'Try a different search term.',
+                          compact: true,
+                        )
+                      else
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 400),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _filteredStructures.length,
+                            separatorBuilder: (_, __) => Divider(
+                              color: DSColors.divider,
+                              height: 1,
+                              indent: DSSpacing.md,
+                              endIndent: DSSpacing.md,
+                            ),
+                            itemBuilder: (_, index) => _buildStructureListTile(_filteredStructures[index]),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: DSSpacing.sectionGap)),
 
           // Lookup form
           SliverToBoxAdapter(
@@ -182,25 +331,37 @@ class _LookupScreenState extends State<LookupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
-                      controller: _codeController,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: InputDecoration(
-                        labelText: 'Structure Code',
-                        hintText: 'SLR-C41001',
-                        prefixIcon: const Icon(Icons.qr_code_rounded),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _codeController,
+                            textCapitalization: TextCapitalization.characters,
+                            decoration: InputDecoration(
+                              labelText: 'Structure Code',
+                              hintText: 'SLR-C41001',
+                              prefixIcon: const Icon(Icons.qr_code_rounded),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                              ),
+                            ),
+                            onSubmitted: (_) => _lookupCode(),
+                          ),
                         ),
-                      ),
-                      onSubmitted: (_) => _lookupCode(),
+                        const SizedBox(width: DSSpacing.md),
+                        DSPrimaryButton(
+                          label: _busy ? 'Looking up...' : 'Look Up',
+                          icon: _busy ? null : Icons.search_rounded,
+                          isLoading: _busy,
+                          isExpanded: false,
+                          onPressed: _lookupCode,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: DSSpacing.md),
-                    DSPrimaryButton(
-                      label: _busy ? 'Looking up...' : 'Look Up Structure',
-                      icon: _busy ? null : Icons.search_rounded,
-                      isLoading: _busy,
-                      onPressed: _lookupCode,
+                    const SizedBox(height: DSSpacing.sm),
+                    Text(
+                      'Tip: Tap a structure from the list above to auto-fill the code',
+                      style: DSTypography.bodySmall.copyWith(color: DSColors.textTertiary),
                     ),
                   ],
                 ),
@@ -221,7 +382,7 @@ class _LookupScreenState extends State<LookupScreen> {
                       : DSEmptyState(
                           icon: Icons.qr_code_scanner_rounded,
                           title: 'Enter a structure code',
-                          message: 'Type or scan a structure code to begin dispatch',
+                          message: 'Type a code, search the list, or tap a structure to begin dispatch',
                         ),
             ),
           ),
@@ -230,6 +391,99 @@ class _LookupScreenState extends State<LookupScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildStructureListTile(_StructureSummary s) {
+    final hasCode = s.code != null && s.code!.isNotEmpty;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _codeController.text = hasCode ? s.code! : s.id;
+          _lookupCode();
+          setState(() => _showStructureList = false);
+        },
+        borderRadius: BorderRadius.circular(DSBorderRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: DSSpacing.md,
+            vertical: DSSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(DSSpacing.sm),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(s.status).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(DSBorderRadius.md),
+                ),
+                child: Icon(
+                  Icons.apartment_rounded,
+                  color: _getStatusColor(s.status),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: DSSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            hasCode ? s.code! : s.id,
+                            style: DSTypography.titleSmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: DSSpacing.sm),
+                        DSStatusBadge(
+                          label: (s.status ?? 'unknown').toUpperCase(),
+                          type: _getStatusType(s.status),
+                          isCompact: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: DSSpacing.xs),
+                    Text(
+                      '${s.type ?? 'Unknown'} · ${s.coords}',
+                      style: DSTypography.bodySmall.copyWith(color: DSColors.textTertiary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: DSColors.textTertiary,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(String? status) {
+    return switch (status?.toLowerCase()) {
+      'surveyed' || 'confirmed' || 'active' => DSColors.success,
+      'pending' || 'under_review' => DSColors.warning,
+      'failed' || 'inactive' => DSColors.error,
+      _ => DSColors.textTertiary,
+    };
+  }
+
+  DSStatusType _getStatusType(String? status) {
+    return switch (status?.toLowerCase()) {
+      'surveyed' || 'confirmed' || 'active' => DSStatusType.success,
+      'pending' || 'under_review' => DSStatusType.warning,
+      'failed' || 'inactive' => DSStatusType.error,
+      _ => DSStatusType.neutral,
+    };
   }
 
   Widget _buildResult() {
@@ -336,15 +590,6 @@ class _LookupScreenState extends State<LookupScreen> {
         _buildActionButtons(),
       ],
     );
-  }
-
-  DSStatusType _getStatusType(String? status) {
-    return switch (status?.toLowerCase()) {
-      'active' || 'confirmed' => DSStatusType.success,
-      'pending' || 'under_review' => DSStatusType.warning,
-      'failed' || 'inactive' => DSStatusType.error,
-      _ => DSStatusType.neutral,
-    };
   }
 
   Widget _buildRouteCard() {
@@ -579,5 +824,41 @@ class _RouteMetric extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _StructureSummary {
+  final String id;
+  final String? code;
+  final String? type;
+  final String? status;
+  final double? lat;
+  final double? lon;
+
+  _StructureSummary({
+    required this.id,
+    this.code,
+    this.type,
+    this.status,
+    this.lat,
+    this.lon,
+  });
+
+  factory _StructureSummary.fromJson(Map<String, dynamic> json) {
+    return _StructureSummary(
+      id: json['id'] ?? '',
+      code: json['code'] as String?,
+      type: json['structure_type'] as String?,
+      status: json['status'] as String?,
+      lat: (json['lat'] as num?)?.toDouble(),
+      lon: (json['lon'] as num?)?.toDouble(),
+    );
+  }
+
+  String get coords {
+    if (lat != null && lon != null) {
+      return '${lat!.toStringAsFixed(4)}, ${lon!.toStringAsFixed(4)}';
+    }
+    return 'Unknown location';
   }
 }
