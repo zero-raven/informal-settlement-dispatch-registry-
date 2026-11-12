@@ -46,7 +46,7 @@
         "stddev": 0.0457
       },
       "build_seconds": {
-        "mean": 0.0145,
+        "mean": 0.0152,
         "stddev": 0.0009
       },
       "nodes": {
@@ -96,8 +96,8 @@
         "stddev": 0.1648
       },
       "build_seconds": {
-        "mean": 0.0903,
-        "stddev": 0.0081
+        "mean": 0.0917,
+        "stddev": 0.0082
       },
       "nodes": {
         "mean": 90,
@@ -146,8 +146,8 @@
         "stddev": 0.1328
       },
       "build_seconds": {
-        "mean": 0.0174,
-        "stddev": 0.0006
+        "mean": 0.0179,
+        "stddev": 0.0004
       },
       "nodes": {
         "mean": 8,
@@ -196,8 +196,8 @@
         "stddev": 0.0699
       },
       "build_seconds": {
-        "mean": 0.0302,
-        "stddev": 0.0091
+        "mean": 0.0277,
+        "stddev": 0.0014
       },
       "nodes": {
         "mean": 1204,

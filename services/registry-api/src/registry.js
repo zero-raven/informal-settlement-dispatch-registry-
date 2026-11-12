@@ -869,6 +869,19 @@ class Registry {
       maintenance: false,
     };
   }
+
+  /** List all users for admin panel. */
+  listUsers() {
+    return this.db.prepare("SELECT id, email, role, active FROM app_user ORDER BY id").all();
+  }
+
+  /** Soft-delete a structure by id. */
+  deleteStructure(id) {
+    const s = this.db.prepare('SELECT id FROM structure WHERE id = ?').get(id);
+    if (!s) throw new Error('not_found');
+    this.db.prepare('UPDATE structure SET deleted_at = ?, updated_at = ? WHERE id = ?')
+      .run(new Date().toISOString(), new Date().toISOString(), id);
+  }
 }
 
 // ---------------------------------------------------------------------------

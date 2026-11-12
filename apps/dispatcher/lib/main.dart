@@ -24,6 +24,7 @@ import 'more_screen.dart';
 import 'create_dispatch_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
+import 'admin_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -211,7 +212,7 @@ class _MainShellState extends State<_MainShell> {
   bool _isProbing = false;
 
   // Mobile IA: at most five primary destinations per role. Everything
-  // else (Create, History, Settings, Sign out) lives under "More".
+  // else (Create, History, Settings, Admin, Sign out) lives under "More".
   final List<_NavItem> _allNavItems = [
     _NavItem(
       icon: Icons.dashboard_rounded,
@@ -242,6 +243,12 @@ class _MainShellState extends State<_MainShell> {
       activeIcon: Icons.edit_location_rounded,
       label: 'Field',
       roles: [UserRole.mapper],
+    ),
+    _NavItem(
+      icon: Icons.admin_panel_settings_rounded,
+      activeIcon: Icons.admin_panel_settings_rounded,
+      label: 'Admin',
+      roles: [UserRole.admin],
     ),
     _NavItem(
       icon: Icons.more_horiz_rounded,
@@ -392,7 +399,8 @@ class _MainShellState extends State<_MainShell> {
     final role = auth.currentRole.value;
 
     // Order must match the filtered _allNavItems order per role:
-    // dispatcher/admin: Home, Calls, Lookup, Map, More
+    // dispatcher: Home, Calls, Lookup, Map, Admin, More
+    // admin: Home, Calls, Lookup, Map, Admin, More
     // caller: Calls, More
     // mapper: Field, More
     return [
@@ -400,6 +408,7 @@ class _MainShellState extends State<_MainShell> {
       InboundCallScreen(baseUrl: baseUrl, role: role),
       if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
       if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
+      if (auth.isAdmin) AdminScreen(baseUrl: baseUrl, role: role),
       if (auth.isMapper) MapperScreen(baseUrl: baseUrl),
       MoreScreen(baseUrl: baseUrl, role: role, initialSettings: _settings,
           onSettingsChanged: (s) { _settings = s; _probeBackend(); }),

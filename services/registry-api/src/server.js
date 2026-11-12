@@ -108,6 +108,26 @@ function createServer({
         return json(res, 200, { username: identity.username, role: identity.role });
       }
 
+      // ---- admin ------------------------------------------------------------
+      // Admin-only: list all users
+      if (req.method === 'GET' && url.pathname === '/v1/admin/users') {
+        const denied = requireRole('admin');
+        if (denied) return denied;
+        return json(res, 200, { users: registry.listUsers() });
+      }
+      // Admin-only: soft-delete a structure
+      if (req.method === 'DELETE' && /^\/v1\/admin\/structures\/[^/]+$/.test(url.pathname)) {
+        const denied = requireRole('admin');
+        if (denied) return denied;
+        const id = url.pathname.split('/')[4];
+        try {
+          registry.deleteStructure(id);
+          return json(res, 200, { deleted: true, id });
+        } catch (e) {
+          return json(res, 404, { error: 'structure_not_found', id });
+        }
+      }
+
       // ---- sync ------------------------------------------------------------
       if (req.method === 'POST' && url.pathname === '/v1/sync/push') {
         const b = await body();
@@ -137,7 +157,8 @@ function createServer({
 
       // ---- structures ------------------------------------------------------
       if (req.method === 'GET' && url.pathname === '/v1/structures') {
-        return json(res, 200, { structures: registry.allStructures(false) });
+        const includeDeleted = url.searchParams.get('include_deleted') === 'true';
+        return json(res, 200, { structures: registry.allStructures(includeDeleted) });
       }
       // Exact segment count only: a bare /:code lookup must not swallow
       // /:code/qr, which would resolve 'qr' as a structure code.
