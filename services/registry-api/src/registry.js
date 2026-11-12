@@ -541,6 +541,26 @@ class Registry {
     return null;
   }
 
+  /** Upsert dispatch zones by code. Validates every entry before writing any (C7). */
+  upsertZones(zones) {
+    if (!Array.isArray(zones)) throw new Error('invalid zone list: expected an array');
+    zones.forEach((z, i) => {
+      const ok = z && typeof z.code === 'string' && z.code && typeof z.name === 'string' && z.name &&
+        [z.lat, z.lon, z.radius_m].every((n) => typeof n === 'number' && Number.isFinite(n));
+      if (!ok) throw new Error(`invalid zone: ${z?.code ?? `#${i}`}`);
+    });
+    const up = this.db.prepare(`INSERT INTO zone (code, name, lat, lon, radius_m, dispatch_enabled)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(code) DO UPDATE SET name = excluded.name, lat = excluded.lat, lon = excluded.lon,
+        radius_m = excluded.radius_m, dispatch_enabled = excluded.dispatch_enabled`);
+    this.db.exec('BEGIN');
+    try {
+      for (const z of zones) up.run(z.code, z.name, z.lat, z.lon, z.radius_m, z.dispatch_enabled ? 1 : 0);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    return zones.length;
+  }
+
   /** Append-only audit of a verification observation (PRD 6.4). */
   recordVerificationEvent({ structureId, trigger_kind, source, outcome, payload, actor }) {
     this.db.prepare(`
@@ -937,7 +957,19 @@ function scoreSignals(s) {
   return Math.min(1, round(score * 100) / 100);
 }
 
+/** Read a ZONES_FILE. Throws with the path in the message on any problem. */
+function loadZonesFile(path) {
+  let zones;
+  try {
+    zones = JSON.parse(require('node:fs').readFileSync(path, 'utf8'));
+  } catch (e) {
+    throw new Error(`cannot load zones file ${path}: ${e.message}`);
+  }
+  if (!Array.isArray(zones)) throw new Error(`zones file ${path} must hold a JSON array`);
+  return zones;
+}
+
 module.exports = {
   Registry, mergeField, mergeFields, MERGEABLE, IDENTITY_FIELDS,
-  IdentityMergeRefused, haversine, scoreSignals,
+  IdentityMergeRefused, haversine, scoreSignals, loadZonesFile,
 };

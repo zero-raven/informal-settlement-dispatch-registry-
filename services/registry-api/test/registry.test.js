@@ -491,3 +491,27 @@ test('sync: a bad service entry does not lose the structure', () => {
   assert.ok(r.getStructure(res.serverId));
   assert.strictEqual(r.db.prepare('SELECT COUNT(*) n FROM structure_service').get().n, 2);
 });
+
+// ---------------------------------------------------------------------------
+// Demo MVP — zones from ZONES_FILE (C7)
+// ---------------------------------------------------------------------------
+
+test('zones: upsert makes lookups inside the zone dispatchable', () => {
+  const r = newRegistry();
+  assert.strictEqual(r.upsertZones([{ code: 'C4', name: 'Campus', lat: 12.97, lon: 77.59, radius_m: 600, dispatch_enabled: true }]), 1);
+  assert.strictEqual(r.zoneFor(12.9701, 77.5901).code, 'C4');
+  r.upsertZones([{ code: 'C4', name: 'Campus', lat: 12.97, lon: 77.59, radius_m: 600, dispatch_enabled: false }]);
+  assert.strictEqual(r.zoneFor(12.9701, 77.5901), null);
+  assert.strictEqual(r.db.prepare('SELECT COUNT(*) n FROM zone').get().n, 1);
+});
+
+test('zones: an invalid entry writes nothing', () => {
+  const r = newRegistry();
+  assert.throws(() => r.upsertZones([{ code: 'A', name: 'a', lat: 1, lon: 1, radius_m: 1, dispatch_enabled: true }, { code: 'B' }]), /invalid zone/);
+  assert.strictEqual(r.db.prepare('SELECT COUNT(*) n FROM zone').get().n, 0);
+});
+
+test('zones: a missing file fails loudly', () => {
+  const { loadZonesFile } = require('../src/registry.js');
+  assert.throws(() => loadZonesFile('does/not/exist.json'), /does\/not\/exist\.json/);
+});

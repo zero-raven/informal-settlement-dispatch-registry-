@@ -37,7 +37,9 @@ function createServer({
   router = null,
   auth = null,
   allowRoleHeader = false,
+  zones = null,
 } = {}) {
+  if (zones) registry.upsertZones(zones);
   // Optional graph-service routing: when GRAPH_URL is set, lookup asks the
   // graph service for a route. Any failure degrades to route:null — the
   // destination is still returned, never a fabricated path.
@@ -520,7 +522,25 @@ function createServer({
 }
 
 if (require.main === module) {
-  createServer().listen(PORT, () => {
+  let zones = null;
+  if (process.env.ZONES_FILE) {
+    try {
+      zones = require('./registry.js').loadZonesFile(process.env.ZONES_FILE);
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+  } else {
+    console.warn('warning: no ZONES_FILE set — dispatch lookups will return outside_mapped_zone');
+  }
+  let srv;
+  try {
+    srv = createServer({ zones });
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+  srv.listen(PORT, () => {
     console.log(`registry-api listening on :${PORT}`);
   });
 }
