@@ -26,6 +26,8 @@ PY=""
 for p in "${PYTHON:-}" .venv/bin/python .venv/Scripts/python.exe .venv-spike/bin/python; do
   if [ -n "$p" ] && [ -x "$p" ]; then PY="$p"; break; fi
 done
+# Absolute, so sections can run it from another directory.
+[ -n "$PY" ] && PY="$(cd "$(dirname "$PY")" && pwd)/$(basename "$PY")"
 # Postgres binaries may live in a versioned dir.
 if ! command -v initdb >/dev/null 2>&1; then
   PGBIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)"
@@ -151,11 +153,15 @@ fi
 # ------------------------------------------------------------------- M0 spike
 section "M0 path-graph spike regression"
 if [ -n "$PY" ]; then
-  if out=$(cd spike && "../$PY" m0_multiseed.py 2>&1); then
+  # Run from a temp dir: the script writes m0_results_multiseed.json to the
+  # cwd, and a check must not rewrite the committed results.
+  SPIKE_TMP=$(mktemp -d)
+  if out=$(cd "$SPIKE_TMP" && "$PY" "$OLDPWD/spike/m0_multiseed.py" 2>&1); then
     ok "4 approaches re-scored over 6 seeds"
   else
     bad "M0 spike failed"
   fi
+  rm -rf "$SPIKE_TMP"
 else
   skip "Python venv absent; see README Setup"
 fi
