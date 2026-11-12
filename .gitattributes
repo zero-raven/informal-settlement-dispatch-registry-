@@ -1,0 +1,7 @@
+# Normalise line endings so a Windows clone does not break shell scripts.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.ico binary
+*.jar binary

@@ -1,12 +1,16 @@
 {
   "name": "registry-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Structural registry, sync, dedup review and dispatch API for the informal-settlement pilot",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
   },
-  "keywords": [],
+  "engines": {
+    "node": ">=22.13"
+  },
   "type": "commonjs",
   "dependencies": {
     "qrcode": "^1.5.4"

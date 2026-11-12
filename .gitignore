@@ -57,8 +57,6 @@ apps/*/linux/flutter/generated_*
 apps/*/.dart_tool/
 apps/*/.flutter-plugins
 apps/*/.flutter-plugins-dependencies
-apps/*/.metadata
-apps/*/pubspec.lock
 
 # Environment
 .env
@@ -79,8 +77,9 @@ temp/
 *.tmp
 
 # Python
+.venv/
 .venv-spike/
-.pyc
+*.pyc
 __pycache__/
 .pgroot/
 .pytest_cache/
@@ -88,18 +87,15 @@ __pycache__/
 # Spike data
 spike/data/
 spike/__pycache__/
-spike/*.json
 
 # Node
 node_modules/
-package-lock.json
 
 # Docker
 docker-compose.override.yml
 
 # Services
 services/*/node_modules/
-services/*/package-lock.json
 services/registry-api/*.log
 tiles/
 
@@ -107,3 +103,8 @@ tiles/
 .demo.pids*
 .demo-selftest.pids*
 demo.db
+data/
+
+# Local agent tooling
+.claude/
+.superpowers/

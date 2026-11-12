@@ -51,19 +51,6 @@ def _req(url, payload=None, role="dispatcher", method=None):
 @pytest.fixture(scope="module")
 def services():
     """Start both services on their real ports."""
-    env = {**os.environ}
-    graph_proc = subprocess.Popen(
-        [sys.executable, os.path.join(REPO, "services", "graph-service", "src", "server.py")],
-        env={**env, "PORT": str(GRAPH_PORT)},
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    reg_proc = subprocess.Popen(
-        ["node", "-e",
-         f"const {{createServer}}=require('{NODE}/src/server.js');"
-         f"createServer().listen({REG_PORT});"],
-        cwd=NODE, env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
 
     def wait(url, tries=60):
         for _ in range(tries):
@@ -74,19 +61,39 @@ def services():
                 time.sleep(0.2)
         return False
 
-    ok_g = wait(f"http://127.0.0.1:{GRAPH_PORT}/v1/graph/health")
-    ok_r = wait(f"http://127.0.0.1:{REG_PORT}/v1/sync/health")
-    assert ok_g, "graph-service failed to start"
-    assert ok_r, "registry-api failed to start"
+    # Windows lets a second server bind a busy port, so a leftover process
+    # would silently answer instead of the one this fixture starts.
+    for port in (GRAPH_PORT, REG_PORT):
+        if wait(f"http://127.0.0.1:{port}/", tries=1):
+            pytest.fail(f"port {port} is already serving; stop the leftover process first")
 
-    yield {"graph": f"http://127.0.0.1:{GRAPH_PORT}", "reg": f"http://127.0.0.1:{REG_PORT}"}
+    env = {**os.environ}
+    graph_proc = subprocess.Popen(
+        [sys.executable, os.path.join(REPO, "services", "graph-service", "src", "server.py")],
+        env={**env, "PORT": str(GRAPH_PORT)},
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    reg_proc = subprocess.Popen(
+        ["node", "-e",
+         # json.dumps quotes the path so Windows backslashes survive in JS
+         f"const {{createServer}}=require({json.dumps(os.path.join(NODE, 'src', 'server.js'))});"
+         f"createServer().listen({REG_PORT});"],
+        cwd=NODE, env=env,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
 
-    for p in (graph_proc, reg_proc):
-        p.terminate()
-        try:
-            p.wait(timeout=5)
-        except Exception:
-            p.kill()
+    # finally: a failed startup assert must still stop both processes.
+    try:
+        assert wait(f"http://127.0.0.1:{GRAPH_PORT}/v1/graph/health"), "graph-service failed to start"
+        assert wait(f"http://127.0.0.1:{REG_PORT}/v1/sync/health"), "registry-api failed to start"
+        yield {"graph": f"http://127.0.0.1:{GRAPH_PORT}", "reg": f"http://127.0.0.1:{REG_PORT}"}
+    finally:
+        for p in (graph_proc, reg_proc):
+            p.terminate()
+            try:
+                p.wait(timeout=5)
+            except Exception:
+                p.kill()
 
 
 @pytest.fixture(scope="module")
