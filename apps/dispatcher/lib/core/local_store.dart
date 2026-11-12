@@ -118,7 +118,10 @@ class LocalStore {
   final String siteId;
 
   static Future<LocalStore> open() async {
-    databaseFactory = databaseFactoryFfi;
+    // Use FFI factory only on desktop; mobile uses the default sqflite factory.
+    if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+      databaseFactory = databaseFactoryFfi;
+    }
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, 'mapper_cache.sqlite');
 
