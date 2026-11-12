@@ -14,7 +14,6 @@ import 'dart:math';
 enum UserRole {
   caller('caller', 'Caller (Citizen)'),
   dispatcher('dispatcher', 'Dispatcher'),
-  admin('admin', 'Administrator'),
   mapper('mapper', 'Mapper (Field)');
 
   const UserRole(this.value, this.displayName);
@@ -49,9 +48,9 @@ class AuthService extends ChangeNotifier {
   String get userName => _userName;
   bool get isInitialized => _isInitialized;
   bool get isLoggedIn => _authToken.isNotEmpty;
-  bool get isDispatcher => _currentRole == UserRole.dispatcher || _currentRole == UserRole.admin;
+  bool get isDispatcher => _currentRole == UserRole.dispatcher;
   bool get isMapper => _currentRole == UserRole.mapper;
-  bool get isAdmin => _currentRole == UserRole.admin;
+  bool get isAdmin => _currentRole == UserRole.dispatcher; // dispatcher has admin powers
   bool get isCaller => _currentRole == UserRole.caller;
 
   Future<void> initialize() async {
@@ -144,6 +143,6 @@ class AuthService extends ChangeNotifier {
   String getRoleDisplayName() => _currentRole.displayName;
 
   List<UserRole> getAvailableRoles() {
-    return [UserRole.caller, UserRole.dispatcher, UserRole.admin, UserRole.mapper];
+    return [UserRole.caller, UserRole.dispatcher, UserRole.mapper];
   }
 }

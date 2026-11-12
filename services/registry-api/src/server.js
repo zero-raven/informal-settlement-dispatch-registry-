@@ -108,16 +108,16 @@ function createServer({
         return json(res, 200, { username: identity.username, role: identity.role });
       }
 
-      // ---- admin ------------------------------------------------------------
-      // Admin-only: list all users
+      // ---- admin -----------------------------------------------------------
+      // Admin/dispatcher: list all users
       if (req.method === 'GET' && url.pathname === '/v1/admin/users') {
-        const denied = requireRole('admin');
+        const denied = requireRole('admin', 'dispatcher');
         if (denied) return denied;
         return json(res, 200, { users: registry.listUsers() });
       }
-      // Admin-only: soft-delete a structure
+      // Admin/dispatcher: soft-delete a structure
       if (req.method === 'DELETE' && /^\/v1\/admin\/structures\/[^/]+$/.test(url.pathname)) {
-        const denied = requireRole('admin');
+        const denied = requireRole('admin', 'dispatcher');
         if (denied) return denied;
         const id = url.pathname.split('/')[4];
         try {

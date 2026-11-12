@@ -22,6 +22,7 @@ class _AdminScreenState extends State<AdminScreen> {
   final String _api = 'http://127.0.0.1:8090';
 
   bool _isLoading = true;
+  String? _error;
   List<_AdminStructure> _structures = [];
   List<_AdminUser> _users = [];
 
@@ -125,6 +126,24 @@ class _AdminScreenState extends State<AdminScreen> {
         child: ListView(
           padding: const EdgeInsets.all(DSSpacing.md),
           children: [
+            if (_error != null)
+              Card(
+                color: DSColors.error.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(DSSpacing.md),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: DSColors.error),
+                      const SizedBox(width: DSSpacing.md),
+                      Expanded(child: Text(_error!, style: const TextStyle(color: DSColors.error))),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: DSColors.error),
+                        onPressed: () => setState(() => _error = null),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             _section('Structures', '${_structures.length} total', Icons.apartment_rounded, _buildStructuresList()),
             const SizedBox(height: DSSpacing.lg),
             _section('Users', '${_users.length} accounts', Icons.people_rounded, _buildUsersList()),

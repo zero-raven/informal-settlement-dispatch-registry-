@@ -218,25 +218,25 @@ class _MainShellState extends State<_MainShell> {
       icon: Icons.dashboard_rounded,
       activeIcon: Icons.dashboard_rounded,
       label: 'Home',
-      roles: [UserRole.dispatcher, UserRole.admin],
+      roles: [UserRole.dispatcher],
     ),
     _NavItem(
       icon: Icons.call_received_rounded,
       activeIcon: Icons.call_received_rounded,
       label: 'Calls',
-      roles: [UserRole.caller, UserRole.dispatcher, UserRole.admin],
+      roles: [UserRole.caller, UserRole.dispatcher],
     ),
     _NavItem(
       icon: Icons.qr_code_scanner_rounded,
       activeIcon: Icons.qr_code_rounded,
       label: 'Lookup',
-      roles: [UserRole.dispatcher, UserRole.admin],
+      roles: [UserRole.dispatcher],
     ),
     _NavItem(
       icon: Icons.map_rounded,
       activeIcon: Icons.map_rounded,
       label: 'Map',
-      roles: [UserRole.dispatcher, UserRole.admin],
+      roles: [UserRole.dispatcher],
     ),
     _NavItem(
       icon: Icons.edit_location_rounded,
@@ -248,13 +248,13 @@ class _MainShellState extends State<_MainShell> {
       icon: Icons.admin_panel_settings_rounded,
       activeIcon: Icons.admin_panel_settings_rounded,
       label: 'Admin',
-      roles: [UserRole.admin],
+      roles: [UserRole.dispatcher],
     ),
     _NavItem(
       icon: Icons.more_horiz_rounded,
       activeIcon: Icons.more_horiz_rounded,
       label: 'More',
-      roles: [UserRole.caller, UserRole.dispatcher, UserRole.admin, UserRole.mapper],
+      roles: [UserRole.caller, UserRole.dispatcher, UserRole.mapper],
     ),
   ];
 
@@ -400,7 +400,6 @@ class _MainShellState extends State<_MainShell> {
 
     // Order must match the filtered _allNavItems order per role:
     // dispatcher: Home, Calls, Lookup, Map, Admin, More
-    // admin: Home, Calls, Lookup, Map, Admin, More
     // caller: Calls, More
     // mapper: Field, More
     return [
@@ -408,7 +407,7 @@ class _MainShellState extends State<_MainShell> {
       InboundCallScreen(baseUrl: baseUrl, role: role),
       if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
       if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
-      if (auth.isAdmin) AdminScreen(baseUrl: baseUrl, role: role),
+      if (auth.isDispatcher) AdminScreen(baseUrl: baseUrl, role: role),
       if (auth.isMapper) MapperScreen(baseUrl: baseUrl),
       MoreScreen(baseUrl: baseUrl, role: role, initialSettings: _settings,
           onSettingsChanged: (s) { _settings = s; _probeBackend(); }),
