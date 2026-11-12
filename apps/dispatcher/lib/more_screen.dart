@@ -34,16 +34,20 @@ class _MoreScreenState extends State<MoreScreen> {
   int _pending = 0;
   int _breadcrumbs = 0;
   int _unsyncedBreadcrumbs = 0;
+  bool _loading = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (context.read<AuthService>().isMapper) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthService>();
+    if (auth.isMapper && !_loading && _structures == 0) {
       _loadMapperStats();
     }
   }
 
   Future<void> _loadMapperStats() async {
+    if (_loading) return;
+    setState(() => _loading = true);
     try {
       final store = await LocalStore.open();
       final structures = await store.countStructures();
@@ -56,9 +60,12 @@ class _MoreScreenState extends State<MoreScreen> {
           _pending = pending;
           _breadcrumbs = crumbs;
           _unsyncedBreadcrumbs = unsynced;
+          _loading = false;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -71,13 +78,20 @@ class _MoreScreenState extends State<MoreScreen> {
         padding: const EdgeInsets.all(DSSpacing.md),
         children: [
           if (auth.isMapper) ...[
-            _statCard('Local structures', '$_structures', Icons.apartment_rounded),
-            _statCard('Pending sync', '$_pending', Icons.sync_rounded),
-            _statCard('GPS breadcrumbs', '$_breadcrumbs', Icons.route_rounded),
-            _statCard('Unsynced points', '$_unsyncedBreadcrumbs', Icons.cloud_off_rounded),
-            const SizedBox(height: DSSpacing.md),
-            _tile(context, Icons.refresh_rounded, 'Refresh stats',
-                'Reload local data counts', _loadMapperStats),
+            if (_loading)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
+              ))
+            else ...[
+              _statCard('Local structures', '$_structures', Icons.apartment_rounded),
+              _statCard('Pending sync', '$_pending', Icons.sync_rounded),
+              _statCard('GPS breadcrumbs', '$_breadcrumbs', Icons.route_rounded),
+              _statCard('Unsynced points', '$_unsyncedBreadcrumbs', Icons.cloud_off_rounded),
+              const SizedBox(height: DSSpacing.md),
+              _tile(context, Icons.refresh_rounded, 'Refresh stats',
+                  'Reload local data counts', _loadMapperStats),
+            ],
             const Divider(),
           ],
           if (auth.isDispatcher) ...[
