@@ -317,13 +317,12 @@ class Registry {
   /**
    * The ONLY place a code is ever issued (C1).
    *
-   * Called exclusively from a reviewer decision. There is no endpoint or code
-   * path that issues a code without one.
+   * Called from a reviewer's dedup decision, or from sync with reviewer
+   * 'system:no_nearby_structure' when no dedup candidate exists (PRD 6.1).
    */
   issueCode(structureId, { reviewerId, zoneCode = 'C' } = {}) {
-    // A code is issued ONLY inside a human decision. If no reviewer is named,
-    // this call is by definition not a human decision — refuse rather than
-    // default, because defaulting here would be the C1 hole.
+    // Every caller must name who settled identity. Defaulting here would let
+    // a new code path mint codes silently — the C1 hole.
     if (!reviewerId) {
       throw new Error(
         `code issuance requires a reviewer (C1): refusing to issue a code for ${structureId}`);

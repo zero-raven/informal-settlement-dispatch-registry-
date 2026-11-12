@@ -222,7 +222,7 @@ class InternalBackend extends DispatchBackend {
     // The dispatch already names its structure; a client need not repeat it.
     const structureId = result.structure_id ?? this.registry.getByCode(existing.code)?.id ?? null;
     result = { ...result, outcome, structure_id: structureId };
-    const rec ={ dispatch_id: dispatchId, ...result, at: new Date().toISOString() };
+    const rec = { dispatch_id: dispatchId, ...result, at: new Date().toISOString() };
     this.outcomes.push(rec);
     // Persist to database
     this.registry.db.prepare(`

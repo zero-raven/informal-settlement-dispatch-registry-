@@ -6,8 +6,14 @@ services:
     environment:
       - PORT=8090
       - DB_PATH=/data/registry.db
+      - ZONES_FILE=/config/zones.campus.json
+      # Routes need the graph service; run it on the host (see README) and
+      # point the registry at it. Without it, lookups return route: null.
+      - GRAPH_URL=${GRAPH_URL:-http://host.docker.internal:8092}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/data
+      - ./config:/config:ro
   # The dispatcher is a Flutter app (Linux binary / Android APK), not a
   # container service. Build it with flutter build linux / flutter build apk.
-  # It was previously listed here with a Dockerfile that does not exist.

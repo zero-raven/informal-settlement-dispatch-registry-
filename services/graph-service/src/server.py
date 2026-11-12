@@ -8,7 +8,8 @@ its whole life, so a rebuild never serves a half-built graph.
 Holds NO database credentials. It builds from breadcrumbs and holds candidates
 only, so it cannot write structure identity (C1) or ground truth (C8).
 
-Run:  .venv-spike/bin/python services/graph-service/src/server.py
+Run:  .venv/bin/python services/graph-service/src/server.py   (see README Setup)
+Env:  PORT (default 8092), REGISTRY_URL (for {"source": "registry"} rebuilds)
 """
 
 from __future__ import annotations
