@@ -215,6 +215,10 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final auth = context.watch<AuthService>();
+
+    // Caller role: only show call logging form, no active calls panel
+    final isCaller = auth.isCaller;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Calls')),
@@ -256,7 +260,7 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
                         ),
                         const SizedBox(height: DSSpacing.xs),
                         Text(
-                          'Receive and dispatch emergency calls',
+                          'Receive and log emergency calls',
                           style: DSTypography.bodyMedium.copyWith(color: DSColors.textSecondary),
                         ),
                       ],
@@ -283,8 +287,8 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
             ),
           ),
 
-          // Active Calls Panel
-          if (_activeCalls.isNotEmpty)
+          // Active Calls Panel - ONLY for dispatcher/admin, NOT caller
+          if (!isCaller && _activeCalls.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: DSSpacing.screenPadding),
@@ -295,7 +299,7 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
               ),
             ),
 
-          if (_activeCalls.isNotEmpty)
+          if (!isCaller && _activeCalls.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: DSSpacing.screenPadding),
@@ -310,7 +314,7 @@ class _InboundCallScreenState extends State<InboundCallScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: DSSpacing.sectionGap)),
 
-          // New Call Form
+          // New Call Form - visible to ALL roles
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: DSSpacing.screenPadding),

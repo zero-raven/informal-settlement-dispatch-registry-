@@ -511,4 +511,53 @@ class LocalStore {
   }
 
   Future<void> close() => _db.close();
+
+  /// Delete a local structure and its associated services/photos.
+  /// Returns true if the structure was found and deleted.
+  Future<bool> deleteStructure(String localId) async {
+    // First check if it exists
+    final existing = await _db.query(
+      'local_structure',
+      where: 'local_id = ?',
+      whereArgs: [localId],
+    );
+    if (existing.isEmpty) return false;
+
+    await _db.transaction((txn) async {
+      // Delete associated services
+      await txn.delete(
+        'local_service',
+        where: 'structure_local_id = ?',
+        whereArgs: [localId],
+      );
+      // Delete associated photos
+      await txn.delete(
+        'local_photo',
+        where: 'structure_local_id = ?',
+        whereArgs: [localId],
+      );
+      // Delete the structure
+      await txn.delete(
+        'local_structure',
+        where: 'local_id = ?',
+        whereArgs: [localId],
+      );
+      // Enqueue a delete operation for sync
+      await _enqueue(txn, 'local_structure', localId, 'delete', {'local_id': localId});
+    });
+    return true;
+  }
+
+  /// Delete a local structure by its code (instead of local_id).
+  /// Returns true if the structure was found and deleted.
+  Future<bool> deleteStructureByCode(String code) async {
+    final rows = await _db.query(
+      'local_structure',
+      where: 'code = ?',
+      whereArgs: [code],
+    );
+    if (rows.isEmpty) return false;
+    final localId = rows.first['local_id'] as String;
+    return deleteStructure(localId);
+  }
 }

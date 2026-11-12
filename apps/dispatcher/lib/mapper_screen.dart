@@ -15,6 +15,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -24,6 +25,7 @@ import 'core/local_store.dart';
 import 'core/sync_service.dart';
 import 'map_view.dart';
 import 'auth_service.dart';
+import 'design_system.dart';
 
 const _uuid = Uuid();
 
@@ -401,6 +403,7 @@ class _MapperScreenState extends State<MapperScreen> {
                 livePosition: _liveFix == null
                     ? null
                     : MapTrailPoint(lat: _liveFix!.lat, lon: _liveFix!.lon),
+                onPinTap: _showPinOptions,
               ),
             ),
             const SizedBox(height: 8),
@@ -413,6 +416,93 @@ class _MapperScreenState extends State<MapperScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showPinOptions(MapPin pin) async {
+    final store = _store;
+    if (store == null) return;
+
+    final code = pin.code ?? 'Unknown';
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? DSColors.surface1
+              : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(DSBorderRadius.xl)),
+        ),
+        padding: const EdgeInsets.all(DSSpacing.cardPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: DSSpacing.md),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: DSColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: DSSpacing.md),
+            Text('Structure: $code', style: DSTypography.titleMedium.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: DSSpacing.md),
+            ListTile(
+              leading: const Icon(Icons.content_copy_rounded),
+              title: const Text('Copy structure code'),
+              onTap: () => Navigator.pop(context, 'copy'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: DSColors.error),
+              title: const Text('Delete (local only)', style: TextStyle(color: DSColors.error)),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+            const SizedBox(height: DSSpacing.md),
+          ],
+        ),
+      ),
+    );
+
+    if (action == 'copy') {
+      await Clipboard.setData(ClipboardData(text: code));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Copied: $code')),
+        );
+      }
+    } else if (action == 'delete') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete structure?'),
+          content: Text('Delete $code locally? This cannot be undone.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: DSColors.error),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        final deleted = await store.deleteStructureByCode(code);
+        if (deleted && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Deleted: $code')),
+          );
+          await _refreshCounts();
+          await _refreshMap();
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Not found: $code'), backgroundColor: DSColors.error),
+          );
+        }
+      }
+    }
   }
 
   Widget _statRow() {

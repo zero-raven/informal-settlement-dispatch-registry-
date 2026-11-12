@@ -13,11 +13,12 @@ import 'package:flutter/material.dart';
 import 'tile_layer.dart';
 
 class MapPin {
-  const MapPin({required this.lat, required this.lon, this.label, this.synced = true});
+  const MapPin({required this.lat, required this.lon, this.label, this.synced = true, this.code});
   final double lat;
   final double lon;
   final String? label;
   final bool synced;
+  final String? code;
 }
 
 class MapTrailPoint {
@@ -89,12 +90,14 @@ class OfflineMapView extends StatefulWidget {
     required this.trail,
     this.livePosition,
     this.height = 320,
+    this.onPinTap,
   });
 
   final List<MapPin> pins;
   final List<MapTrailPoint> trail;
   final MapTrailPoint? livePosition;
   final double height;
+  final void Function(MapPin)? onPinTap;
 
   @override
   State<OfflineMapView> createState() => _OfflineMapViewState();
@@ -130,6 +133,14 @@ class _OfflineMapViewState extends State<OfflineMapView> {
     );
   }
 
+  MapProjection? _getProjection(Size size) {
+    final lats = <double>[...widget.pins.map((p) => p.lat), ...widget.trail.map((p) => p.lat)];
+    final lons = <double>[...widget.pins.map((p) => p.lon), ...widget.trail.map((p) => p.lon)];
+    if (widget.livePosition != null) { lats.add(widget.livePosition!.lat); lons.add(widget.livePosition!.lon); }
+    if (lats.isEmpty) return null;
+    return MapProjection.fit(lats: lats, lons: lons, width: size.width, height: size.height);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -145,10 +156,25 @@ class _OfflineMapViewState extends State<OfflineMapView> {
               if (mounted) setState(() => _tiles = tiles);
             });
           }
-          return CustomPaint(
-            painter: _OfflineMapPainter(
-                pins: widget.pins, trail: widget.trail,
-                livePosition: widget.livePosition, tiles: _tiles ?? const []),
+          return GestureDetector(
+            onTapDown: widget.onPinTap == null ? null : (details) {
+              final proj = _getProjection(size);
+              if (proj == null) return;
+              for (final pin in widget.pins) {
+                final o = proj.project(pin.lat, pin.lon);
+                final dx = details.localPosition.dx - o.dx;
+                final dy = details.localPosition.dy - o.dy;
+                if (dx * dx + dy * dy <= 144) { // 12px radius (pin is 9px + tap tolerance)
+                  widget.onPinTap!(pin);
+                  break;
+                }
+              }
+            },
+            child: CustomPaint(
+              painter: _OfflineMapPainter(
+                  pins: widget.pins, trail: widget.trail,
+                  livePosition: widget.livePosition, tiles: _tiles ?? const []),
+            ),
           );
         }),
       ),
