@@ -1,77 +1,68 @@
-How to present / demo the current version (honest capabilities)
-==============================================================
-Environment state (verified on this machine):
-- Node 26.12.1: yes
-- Python 3.12 venv (.venv-spike): yes
-- Flutter SDK (.cache/flutter/bin): YES (3.24.5) — installed by `scripts/setup-flutter.sh`
-- Docker: NO (no group, no socket, no sudo for install)
-- PostGIS (.pgroot/): yes
-- Registry service: starts with `node`
-- Dispatcher app code: tests pass (`flutter test` +2); `flutter build linux` fails (Linux desktop dependency gap); `flutter build apk` blocked (Android SDK absent per `flutter doctor`)
-- Mapper app code: tests pass (`flutter test` +7); same build limits apply
+# Demo: the living-registry loop (PRD §6.8)
 
-What you CAN demonstrate live (one-command entry points):
+One structure travels the whole loop live:
 
-1. Verified baseline (30 seconds, no network needed)
-   Command: bash scripts/verify-all.sh
-   Shows: 70 assertions green, 6 suites, constraint tests C1-C9.
+**mapper walks + pins on the phone → sync → structure gets a code → simulated call → dispatcher looks up the code → route drawn → responder marks "failed" → re-survey task appears.**
 
-2. Registry server (live HTTP endpoint for demo)
-   Command: PORT=8090 node services/registry-api/src/server.js  (background)
-   Or: node -e "const {createServer}=require('./services/registry-api/src/server'); const s=createServer(); s.listen(8090, ()=>console.log('registry on 8090'))"
-   Then test with curl:
-     curl -X POST http://localhost:8090/v1/grievances \
-       -H "Content-Type: application/json" -H "x-role: mapper" \
-       -d '{"device_hash":"demo-01","structure_code":"TEST-001","reported_location":{"lat":12.97,"lon":77.59},"photo_sha256":"demo-sha","body":"Synthetic complaint for presentation"}'
-   Expected response: 201, synthetic=true, state=received, weight=0.1
+## Before the day
 
-3. Grievance triage transition (live)
-   Command (after POST above):
-     curl -X POST http://localhost:8090/v1/grievances/{id}/triage \
-       -H "Content-Type: application/json" -H "x-role: reviewer" \
-       -d '{"state":"corroborating","note":"Synthetic triage for demo","source":"grievance_corroborated"}'
-   Expected: state updates; if weight >= 0.5, mapper task triggered (priority 1).
+1. **Set the zone to your campus.** Edit `config/zones.campus.json`: `lat`/`lon` = campus centre, `radius_m` = how far out dispatch is allowed. Structures outside it are refused with `outside_mapped_zone`.
+2. **Check the loop works on this machine** (throwaway in-memory instances, touches nothing):
+   ```bash
+   scripts/demo.sh selftest
+   ```
+   Every line must say `PASS`.
+3. **Start the services** (laptop):
+   ```bash
+   scripts/demo.sh start
+   ```
+   Phone and laptop on the same network. In the app: Settings → Registry API Base URL = `http://<laptop LAN IP>:8090`. Set *Responder start latitude/longitude* to where responders set off from (default: the zone centre).
+4. **Record the walks.** In the mapper app (Field tab), record **3–4 overlapping walks** of the route you will show — from the responder start point to the structure you will pin. One walk gives a patchy graph. Sync after each walk.
+5. **Build the graph:**
+   ```bash
+   scripts/demo.sh rebuild
+   ```
+   `insufficient_breadcrumbs` means the walks did not sync — check the app's sync count.
 
-4. M0 regression (synthetic GPS traces, 3 minutes)
-   Command: cd spike && ../.venv-spike/bin/python m0_multiseed.py
-   Shows: hybrid passes corrected gate vs naive baseline.
-   IMPORTANT: say "synthetic traces only — field accuracy unverified. No lane_entry_exit.gpx."
+## Live (about 3 minutes)
 
-5. Grievance synthetic tests (instant)
-   Command: node --test services/registry-api/test/grievance.test.js
-   Shows: 7 assertions pass (synthetic labels, rate limits, weights, state machine, corroboration threshold, offset > 25m, exclusion of real-world validation).
+| Step | Who | Do | Show |
+|---|---|---|---|
+| 1 | Mapper | Pin a structure on the walked route, add a water service, tap Sync | The pin now shows its code (`SLR-…`) — issued at sync because nothing is nearby |
+| 2 | Caller | Calls tab → log an emergency with that code | The call in the list |
+| 3 | Dispatcher | Lookup → enter the code | Destination, zone, and the route drawn on the map with distance and "inferred" legs |
+| 4 | Dispatcher | Dispatch → mark **Failed** | Outcome recorded |
+| 5 | Anyone | `curl -s http://127.0.0.1:8090/v1/tasks` | A priority-1 `dispatch_failure` task for that structure — the fast signal (PRD §6.4) |
 
-What to say during presentation (explicit, no invented claims):
-- "M0-M6 verified by 70 automated assertions. M7 grievance workflow implemented with synthetic data. M8 deferred items clearly listed in docs/M8_LOCAL_STATUS.md."
-- "PRD §6.2 superseded by M0 measurement — contradiction documented in ADR.md; PRD unchanged."
-- "Grievance endpoints carry synthetic=true. No real settlement PII. Rate limits synthetic (in-memory). No real imagery integrated."
-- "Flutter SDK installed locally (3.24.5, no root). Dispatcher (+2) and mapper (+7) tests verified green. Desktop build (`flutter build linux`) fails due to Linux desktop dependency gap (not SDK absence). Mobile APK blocked by Android SDK absence (`flutter doctor` confirms)."
-- "GPS capture blocked — synthetic only. 100-structure dry run deferred."
+Say: "the registry corrected itself from the field, with no manual resurvey scheduled."
 
-What you CANNOT demonstrate honestly on this machine:
-- Live dispatcher/mapper Flutter desktop app (`flutter build linux` fails; `flutter run -d linux` blocked by Linux desktop dependency gap)
-- Mobile APK build (`flutter doctor`: [✗] Android SDK not installed)
-- Docker-based services (`make up`) — Docker not installed, no sudo for install
-- Real GPS trace capture
-- Live cluster load test
-- Real imagery change detection for C4/C9
+Pin a second structure within ~12 m of the first to show the other branch: it syncs as `dedup_required` and gets **no code** until a reviewer decides (PRD §6.1).
 
-Quick demo script (copy-paste for presentation):
+## After
 
-  # 1. Show verified baseline
-  bash scripts/verify-all.sh
+```bash
+scripts/demo.sh stop
+```
+`demo.db` keeps the session's data; delete it to start clean.
 
-  # 2. Start registry (background)
-  PORT=8090 node services/registry-api/src/server.js &
+## What to say honestly
 
-  # 3. Submit synthetic grievance (visible response with synthetic=true)
-  curl -s -X POST http://localhost:8090/v1/grievances \
-    -H "Content-Type: application/json" -H "x-role: mapper" \
-    -d '{"device_hash":"demo-01","structure_code":"TEST-001","reported_location":{"lat":12.97,"lon":77.59},"body":"Synthetic complaint for presentation"}' | head -c 500
+- Campus stands in for a settlement (PRD §3). GPS walks are real; nothing is validated on a real settlement.
+- Routes are **inferred** from walks and flagged as such until a mapper or responder confirms them (C8).
+- Not in this demo: photo capture, the dedup review screen, imagery change detection, footprint bootstrap.
 
-  # 4. Show M0 regression output
-  echo "Synthetic M0 regression results:"
-  head -15 spike/M0_RESULTS.md
+## Grievance channel (curl, synthetic)
 
-  # 5. Stop registry
-  kill %1 || true
+```bash
+curl -s -X POST http://127.0.0.1:8090/v1/grievances \
+  -H "Content-Type: application/json" \
+  -d '{"device_hash":"demo-01","structure_code":"SLR-C41001","reported_location":{"lat":12.97,"lon":77.59},"body":"Synthetic complaint for presentation"}'
+```
+Expected: `201`, `state: received`, `weight: 0.1`. A report more than 25 m from the registered structure opens a dedup-review task instead of asserting anything.
+
+Triage (note: this endpoint has no role check yet — a known gap, not for the demo script):
+```bash
+curl -s -X POST http://127.0.0.1:8090/v1/grievances/<id>/triage \
+  -H "Content-Type: application/json" \
+  -d '{"state":"corroborating","source":"grievance_corroborated"}'
+```

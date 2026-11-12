@@ -102,3 +102,8 @@ services/*/node_modules/
 services/*/package-lock.json
 services/registry-api/*.log
 tiles/
+
+# Demo runtime (scripts/demo.sh)
+.demo.pids*
+.demo-selftest.pids*
+demo.db
