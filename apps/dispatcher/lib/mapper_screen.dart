@@ -1,5 +1,3 @@
-// Mapper screen for the unified app. Offline-first: GPS walks, structure
-// capture and sync live here for the mapper role only.
 /// Mapper (field) screen — offline-first settlement mapping, inside the unified app.
 ///
 /// What a mapper needs, in order:
@@ -17,6 +15,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -24,13 +23,15 @@ import 'core/gps_service.dart';
 import 'core/local_store.dart';
 import 'core/sync_service.dart';
 import 'map_view.dart';
+import 'auth_service.dart';
 
 const _uuid = Uuid();
 
 class MapperScreen extends StatefulWidget {
-  const MapperScreen({super.key, this.initialStore});
-
+  final String? baseUrl;
   final LocalStore? initialStore;
+
+  const MapperScreen({super.key, this.baseUrl, this.initialStore});
 
   @override
   State<MapperScreen> createState() => _MapperScreenState();
@@ -103,7 +104,7 @@ class _MapperScreenState extends State<MapperScreen> {
     });
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    final savedUrl = prefs.getString('api_base_url');
+    final savedUrl = prefs.getString('api_base_url') ?? widget.baseUrl;
     if (savedUrl != null && savedUrl.isNotEmpty) {
       _apiUrlController.text = savedUrl;
       sync.baseUrl = savedUrl;
@@ -172,7 +173,8 @@ class _MapperScreenState extends State<MapperScreen> {
     if (!mounted) return;
     if (fix == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No GPS fix yet — try again outdoors.')),
+        const SnackBar(
+            content: Text('No GPS fix available (on desktop, use manual entry).')),
       );
       return;
     }
@@ -181,6 +183,9 @@ class _MapperScreenState extends State<MapperScreen> {
       _latController.text = fix.lat.toStringAsFixed(6);
       _lonController.text = fix.lon.toStringAsFixed(6);
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('GPS fix: ${fix.lat.toStringAsFixed(5)}, ${fix.lon.toStringAsFixed(5)}')),
+    );
   }
 
   Future<void> _toggleWalk() async {
@@ -308,6 +313,7 @@ class _MapperScreenState extends State<MapperScreen> {
   @override
   Widget build(BuildContext context) {
     final store = _store;
+    final auth = context.watch<AuthService>();
     if (store == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -324,6 +330,25 @@ class _MapperScreenState extends State<MapperScreen> {
                 label: Text(_online ? 'ONLINE' : 'OFFLINE'),
               ),
             ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'signout') {
+                await auth.logout();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'signout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_rounded),
+                    SizedBox(width: 8),
+                    Text('Sign out'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

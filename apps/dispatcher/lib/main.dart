@@ -400,7 +400,7 @@ class _MainShellState extends State<_MainShell> {
       InboundCallScreen(baseUrl: baseUrl, role: role),
       if (auth.isDispatcher) LookupScreen(baseUrl: baseUrl, graphUrl: graphUrl, role: role),
       if (auth.isDispatcher) MapScreen(baseUrl: baseUrl, role: role),
-      if (auth.isMapper) const MapperScreen(),
+      if (auth.isMapper) MapperScreen(baseUrl: baseUrl),
       MoreScreen(baseUrl: baseUrl, role: role, initialSettings: _settings,
           onSettingsChanged: (s) { _settings = s; _probeBackend(); }),
     ];

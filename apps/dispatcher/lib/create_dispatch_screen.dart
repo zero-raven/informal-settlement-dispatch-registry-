@@ -110,60 +110,65 @@ class _CreateDispatchScreenState extends State<CreateDispatchScreen> {
   }
 
   Future<void> _createDispatch() async {
-    if (_structureInfo == null || _responderController.text.trim().isEmpty) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final base = widget.baseUrl ?? _api;
-      
-      // Step 1: Assign
-      final assignRes = await http.post(
-        Uri.parse('$base/v1/dispatch/assign'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'code': _structureInfo!.code,
-          'responder': _responderController.text.trim(),
-        }),
-      );
-
-      if (assignRes.statusCode != 200) {
-        final body = jsonDecode(assignRes.body);
-        throw Exception(body['error'] ?? 'Assign failed');
+      if (_structureInfo == null) {
+        setState(() => _error = 'Please lookup a structure code first.');
+        return;
+      }
+      if (_responderController.text.trim().isEmpty) {
+        setState(() => _error = 'Please enter a responder name/ID.');
+        return;
       }
 
-      final assignData = jsonDecode(assignRes.body) as Map<String, dynamic>;
-      final dispatchId = assignData['dispatch_id'] as String;
+      setState(() { _isLoading = true; _error = null; });
 
-      // Step 2: If notes provided, we could store them (backend doesn't have notes field yet)
-      // For now just show success
+      try {
+        final base = widget.baseUrl ?? _api;
 
-      setState(() {
-        _codeController.clear();
-        _responderController.clear();
-        _notesController.clear();
-        _structureInfo = null;
-        _error = null;
-      });
-
-      _loadPendingDispatches();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Dispatch created: $dispatchId', style: DSTypography.bodyMedium.copyWith(color: Colors.white)),
-            backgroundColor: DSColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
-          ),
+        // Step 1: Assign
+        final assignRes = await http.post(
+          Uri.parse('$base/v1/dispatch/assign'),
+          headers: await _headers(),
+          body: jsonEncode({
+            'code': _structureInfo!.code,
+            'responder': _responderController.text.trim(),
+          }),
         );
+
+        if (assignRes.statusCode != 200) {
+          final body = jsonDecode(assignRes.body);
+          throw Exception(body['error'] ?? 'Assign failed (HTTP ${assignRes.statusCode})');
+        }
+
+        final assignData = jsonDecode(assignRes.body) as Map<String, dynamic>;
+        final dispatchId = assignData['dispatch_id'] as String;
+
+        // Clear form on success
+        setState(() {
+          _codeController.clear();
+          _responderController.clear();
+          _notesController.clear();
+          _structureInfo = null;
+          _error = null;
+        });
+
+        _loadPendingDispatches();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Dispatch created: $dispatchId', style: DSTypography.bodyMedium.copyWith(color: Colors.white)),
+              backgroundColor: DSColors.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DSBorderRadius.md)),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -257,6 +262,14 @@ class _CreateDispatchScreenState extends State<CreateDispatchScreen> {
                       const SizedBox(height: DSSpacing.md),
                       _buildStructureInfo(_structureInfo!),
                     ],
+                    if (_error != null && _structureInfo == null) ...[
+                      const SizedBox(height: DSSpacing.md),
+                      DSErrorState(
+                        title: 'Cannot create dispatch',
+                        message: _error!,
+                        compact: true,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -307,6 +320,14 @@ class _CreateDispatchScreenState extends State<CreateDispatchScreen> {
                           ),
                         ),
                       ),
+                      if (_error != null) ...[
+                        const SizedBox(height: DSSpacing.md),
+                        DSErrorState(
+                          title: 'Dispatch failed',
+                          message: _error!,
+                          compact: true,
+                        ),
+                      ],
                       const SizedBox(height: DSSpacing.md),
                       DSActionRow(
                         actions: [

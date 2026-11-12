@@ -180,6 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     hint: 'http://127.0.0.1:8090',
                     onChanged: (v) => _settings = _settings.copyWith(apiBaseUrl: v),
                     prefixIcon: Icons.api_rounded,
+                    helperText: 'Use Tailscale IP (100.x.x.x) for remote access',
                   ),
                   const SizedBox(height: DSSpacing.md),
                   _buildTextField(
@@ -452,6 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<String> onChanged,
     required IconData prefixIcon,
     TextInputType? keyboardType,
+    String? helperText,
   }) {
     // TextFormField (not a controller created in build) so editing a URL
     // on a phone does not lose the cursor on every rebuild.
@@ -461,6 +463,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        helperText: helperText,
         prefixIcon: Icon(prefixIcon),
       ),
       onChanged: onChanged,

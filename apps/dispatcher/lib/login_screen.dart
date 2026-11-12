@@ -148,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(DSBorderRadius.md),
                       ),
+                      helperText: 'Use Tailscale IP (100.x.x.x) for remote access',
                     ),
                   ),
                   if (_error != null) ...[
