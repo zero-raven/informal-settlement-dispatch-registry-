@@ -686,7 +686,7 @@ class _QuickActionItem {
 class _QuickActionCard extends StatelessWidget {
   final _QuickActionItem action;
 
-  const _QuickActionCard({super.key, required this.action});
+  const _QuickActionCard({required this.action});
 
   @override
   Widget build(BuildContext context) {
