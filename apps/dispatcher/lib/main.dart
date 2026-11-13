@@ -21,9 +21,6 @@ import 'lookup_screen.dart';
 import 'map_screen.dart';
 import 'mapper_screen.dart';
 import 'more_screen.dart';
-import 'create_dispatch_screen.dart';
-import 'history_screen.dart';
-import 'settings_screen.dart';
 import 'admin_screen.dart';
 
 void main() async {
@@ -299,21 +296,6 @@ class _MainShellState extends State<_MainShell> {
     } finally {
       if (mounted) setState(() => _isProbing = false);
     }
-  }
-
-  void _onNavTap(int index) {
-    setState(() => _currentIndex = index);
-  }
-
-  void _showLoginSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => LoginScreen(
-        onLoginComplete: () => setState(() {}),
-      ),
-    );
   }
 
   @override

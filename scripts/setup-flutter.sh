@@ -10,7 +10,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${FLUTTER_VERSION:-3.24.5}"
+VERSION="${FLUTTER_VERSION:-3.50.0}"
 CACHE="$PWD/.cache"
 ROOT="$CACHE/flutter"
 

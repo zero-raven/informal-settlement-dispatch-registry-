@@ -1,6 +1,7 @@
 // Design System for Dispatcher App
 // Professional dark theme per user preferences: #0f1115 bg, #2ec4b6 teal accent
 
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -390,7 +391,7 @@ class DSTheme {
       ),
 
       // Card theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: isDark ? DSColors.surface1 : Colors.white,
         elevation: DSElevation.level1,
         shadowColor: Colors.black.withOpacity( 0.3),
@@ -690,7 +691,7 @@ class DSTheme {
       ),
 
       // Tab bar theme
-      tabBarTheme: TabBarTheme(
+      tabBarTheme: TabBarThemeData(
         labelColor: DSColors.primary,
         unselectedLabelColor: DSColors.textTertiary,
         indicatorColor: DSColors.primary,
@@ -710,7 +711,7 @@ class DSTheme {
       ),
 
       // Dialog theme
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: isDark ? DSColors.surface1 : Colors.white,
         elevation: DSElevation.level4,
         shape: RoundedRectangleBorder(

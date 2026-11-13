@@ -15,7 +15,7 @@ Semester project (RVCE CSE 2026). The pilot uses a college campus as a stand-in 
 | `services/consent-api/` | Consent vault: resident identity, stored separately and opt-in (library + tests) | Node |
 | `services/change-detector/` | Imagery-diff candidates (stub) | Node |
 | `packages/sync-core/` | Shared offline-sync / field-merge rules, mirrored by the registry | Node |
-| `apps/dispatcher/` | **The one Flutter app.** The role from login picks the UI: caller, dispatcher, admin or mapper | Flutter 3.24, Dart ≥ 3.5 |
+| `apps/dispatcher/` | **The one Flutter app.** The role from login picks the UI: caller, dispatcher, admin or mapper | Flutter 3.50 (stable), Dart ≥ 3.5 |
 | `spike/` | M0 path-graph algorithm study, with the measurements behind ADR-001 | Python |
 | `config/zones.campus.json` | Dispatch zones loaded at startup | JSON |
 | `scripts/` | `demo.sh` (run the demo), `verify-all.sh` (every check), setup helpers | Bash |
@@ -33,7 +33,7 @@ mapper app ──sync──▶ registry-api ◀──lookup── dispatcher app
 
 ## Setup
 
-You need **Node 22.13+** (CI uses 24), **Python 3.12+**, and **Flutter 3.24** (only for the app). On Windows, use Git Bash for the `scripts/*.sh` files.
+You need **Node 22.13+** (CI uses 24), **Python 3.12+**, and **Flutter 3.50 stable** (only for the app; older SDKs such as 3.24 will not compile it). On Windows, use Git Bash for the `scripts/*.sh` files.
 
 ```bash
 git clone https://github.com/zero-raven/informal-settlement-dispatch-registry-.git

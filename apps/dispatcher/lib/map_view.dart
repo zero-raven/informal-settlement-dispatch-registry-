@@ -105,7 +105,6 @@ class OfflineMapView extends StatefulWidget {
 
 class _OfflineMapViewState extends State<OfflineMapView> {
   List<TileImage>? _tiles;
-  String _tilesKey = '';
 
   @override
   void didUpdateWidget(OfflineMapView old) {
@@ -123,7 +122,6 @@ class _OfflineMapViewState extends State<OfflineMapView> {
       lons.add(widget.livePosition!.lon);
     }
     if (lats.isEmpty) return const [];
-    final key = '${lats.length}-${lons.length}-${size.width}x${size.height}';
     final zoom = TileMath.zoomForSpan(
       (lats.reduce(math.max) - lats.reduce(math.min)) * 111320, size.height);
     return loadTiles(
