@@ -44,7 +44,6 @@ async function login(username, password) {
 
 (async () => {
   const mapper = await login('mapper', 'mapper123');
-  const dispatcher = await login('dispatcher', 'dispatch123');
 
   // Three overlapping 120 m walks heading north from the zone centre, a few
   // metres apart and slightly noisy, like real repeated walks of one lane.
@@ -64,6 +63,20 @@ async function login(username, password) {
       payload: { trace_id: `selftest-${run}-${t}`, points } });
   }
   const dest = { lat: zone.lat + 100 / M_LAT, lon: zone.lon };
+
+  // --seed: stand in for phone walks on a machine without GPS. Load the walks
+  // into the running demo, build the graph, and leave the pin to the presenter.
+  if (process.argv.includes('--seed')) {
+    const seeded = await call(REGISTRY, '/v1/sync/push', { method: 'POST', token: mapper, body: { device_id: 'demo-seed', ops } });
+    step('walks synced', seeded.status === 200 && seeded.out.results.every((r) => r.state === 'applied'));
+    const built = await call(GRAPH, '/v1/graph/rebuild', { method: 'POST', body: { source: 'registry' } });
+    step('graph rebuilt', built.status === 200, built.status === 200 ? `v${built.out.graph_version}` : JSON.stringify(built.out));
+    console.log(`\nPin the demo structure at  lat ${dest.lat.toFixed(6)}  lon ${dest.lon.toFixed(6)}`);
+    console.log(`Responder start (Settings): lat ${zone.lat}  lon ${zone.lon}`);
+    return;
+  }
+
+  const dispatcher = await login('dispatcher', 'dispatch123');
   ops.push({ clientOpId: `selftest-${run}-pin`, clientSeq: ++seq, table: 'local_structure', op: 'create',
     payload: { centroid: dest, structure_type: 'standalone_dwelling',
       services: [{ service_type: 'water', source: 'shared_tap', supply_hours: [['06:00', '09:00']] }] } });

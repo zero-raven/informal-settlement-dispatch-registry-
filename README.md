@@ -73,7 +73,7 @@ bash scripts/demo.sh rebuild    # build the walk graph from synced breadcrumbs
 bash scripts/demo.sh stop
 ```
 
-`bash scripts/demo.sh selftest` runs the whole loop (sync → code → lookup → route → failed outcome → re-survey task) against throwaway in-memory servers. Run it before any demo. The live click-path is in [`docs/PRESENT_DEMO.md`](docs/PRESENT_DEMO.md).
+`bash scripts/demo.sh selftest` runs the whole loop (sync → code → lookup → route → failed outcome → re-survey task) against throwaway in-memory servers. Run it before any demo. The live click-path is in [`docs/PRESENT_DEMO.md`](docs/PRESENT_DEMO.md). With no phone, `bash scripts/demo.sh seed` loads pre-recorded walks so the whole demo runs on one laptop.
 
 ### Each service by hand
 

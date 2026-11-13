@@ -3,6 +3,7 @@
 #
 #   scripts/demo.sh start      start registry (:8090) + graph service (:8092)
 #   scripts/demo.sh rebuild    rebuild the walk graph from synced breadcrumbs
+#   scripts/demo.sh seed       no phone: load pre-recorded walks + rebuild (after start)
 #   scripts/demo.sh selftest   run the whole loop on throwaway instances (:18090/:18092)
 #   scripts/demo.sh stop       stop what `start` started
 #
@@ -64,6 +65,10 @@ case "${1:-}" in
       -H 'Content-Type: application/json' -d '{"source":"registry"}'
     echo
     ;;
+  seed)
+    # No phone/GPS: load pre-recorded walks into the running demo and rebuild.
+    REGISTRY=http://127.0.0.1:8090 GRAPH=http://127.0.0.1:8092 node scripts/demo-selftest.js "$ZONES_FILE" --seed
+    ;;
   selftest)
     st=.demo-selftest.pids
     trap 'stop_services "$st"' EXIT
@@ -74,7 +79,7 @@ case "${1:-}" in
     stop_services "$PIDS"
     ;;
   *)
-    sed -n '2,9p' "$0"
+    sed -n '2,10p' "$0"
     exit 1
     ;;
 esac

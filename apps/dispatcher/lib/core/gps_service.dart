@@ -19,12 +19,19 @@ class GpsFix {
 enum GpsStatus { unknown, granted, denied, deniedForever, servicesOff }
 
 Future<GpsStatus> ensureGpsPermission() async {
-  if (!await Geolocator.isLocationServiceEnabled()) {
+  LocationPermission permission;
+  try {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      return GpsStatus.servicesOff;
+    }
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+  } catch (_) {
+    // No location plugin on this platform (Linux desktop): treat as no
+    // location, so the UI falls back to manual coordinate entry.
     return GpsStatus.servicesOff;
-  }
-  var permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
   }
   return switch (permission) {
     LocationPermission.always || LocationPermission.whileInUse => GpsStatus.granted,

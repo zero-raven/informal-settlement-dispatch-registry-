@@ -24,6 +24,17 @@ One structure travels the whole loop live:
    ```
    `insufficient_breadcrumbs` means the walks did not sync — check the app's sync count.
 
+## One laptop, no phone (Linux build)
+
+Use this when there is no Android build. Everything runs on one Linux machine, and you switch roles with **More → Sign out**.
+
+1. Get the app: download `dispatcher-linux-<tag>.tar.gz` from the GitHub Release, then `tar -xzf dispatcher-linux-<tag>.tar.gz` (needs GTK3: `sudo apt install libgtk-3-0`).
+2. `bash scripts/demo.sh start`, then **`bash scripts/demo.sh seed`**. This loads three pre-recorded walks (standing in for the phone's GPS walks) and builds the graph. It prints the coordinates to pin the structure at.
+3. `./bundle/dispatcher`. In Settings, Registry API Base URL = `http://127.0.0.1:8090`. The responder start stays at the default (the zone centre).
+4. Run the live steps below. In step 1, sign in as **mapper**, type the printed latitude/longitude into the capture form (the desktop has no GPS, so "use current location" says to enter coordinates by hand), save, and Sync.
+
+Say: "in the field the phone records these walks and the pin location; here they are pre-loaded so we can show the loop on one screen."
+
 ## Live (about 3 minutes)
 
 | Step | Who | Do | Show |
