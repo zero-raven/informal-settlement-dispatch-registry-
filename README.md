@@ -144,6 +144,8 @@ Mapper capture is fully offline: structures, services and GPS points go to local
 
 **Build:** `flutter build apk` (Android) or `flutter build linux` (needs GTK3: `apt install libgtk-3-dev` / `pacman -S gtk3`).
 
+**Prebuilt Linux app:** download `dispatcher-linux-<tag>.tar.gz` from the GitHub Release, then `tar -xzf dispatcher-linux-<tag>.tar.gz && ./bundle/dispatcher` (needs GTK3 at runtime).
+
 ---
 
 ## API at a glance
